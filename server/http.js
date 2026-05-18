@@ -2,9 +2,12 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { runCodexStage } from './codex-runner.js'
 import { renderHyperFrames } from './hyperframes-renderer.js'
+import { writeMetadata } from './metadata.js'
 import { createVideoProject } from './project-model.js'
 import { createProjectStore } from './project-store.js'
+import { buildReviewChecklist, isChecklistApproved } from './review-checklist.js'
 import { getRepoRoot, resolveInside } from './paths.js'
+import { createThumbnail } from './thumbnailer.js'
 
 async function readJson(request) {
   const chunks = []
@@ -90,6 +93,36 @@ export async function createServer(options = {}) {
         const project = await store.loadProject(videoId)
         project.artifacts.renderResult = renderResult
         project.status = 'rendered'
+        project.updatedAt = new Date().toISOString()
+        await store.saveProject(project)
+        return sendJson(response, 200, { project })
+      }
+      if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/thumbnail$/.test(url.pathname)) {
+        const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/thumbnail$/)
+        const project = await store.loadProject(videoId)
+        const thumbnail = await createThumbnail({ repoRoot, videoId, mp4Path: project.artifacts.renderResult.mp4Path })
+        project.artifacts.thumbnail = thumbnail
+        project.updatedAt = new Date().toISOString()
+        await store.saveProject(project)
+        return sendJson(response, 200, { project })
+      }
+      if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/metadata$/.test(url.pathname)) {
+        const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/metadata$/)
+        const project = await store.loadProject(videoId)
+        project.artifacts.metadataPath = await writeMetadata({ repoRoot, project })
+        project.status = 'library_ready'
+        project.updatedAt = new Date().toISOString()
+        await store.saveProject(project)
+        return sendJson(response, 200, { project })
+      }
+      if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/review$/.test(url.pathname)) {
+        const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/review$/)
+        const body = await readJson(request)
+        const project = await store.loadProject(videoId)
+        const { checklist, checklistPath } = await buildReviewChecklist({ repoRoot, project, humanDecision: body.humanDecision })
+        project.reviewChecklist = checklist
+        project.artifacts.reviewChecklistPath = checklistPath
+        project.status = isChecklistApproved(checklist) ? 'reviewed' : 'needs_review'
         project.updatedAt = new Date().toISOString()
         await store.saveProject(project)
         return sendJson(response, 200, { project })

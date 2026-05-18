@@ -1,5 +1,6 @@
 import http from 'node:http'
 import { readFile } from 'node:fs/promises'
+import { runCodexStage } from './codex-runner.js'
 import { createVideoProject } from './project-model.js'
 import { createProjectStore } from './project-store.js'
 import { getRepoRoot, resolveInside } from './paths.js'
@@ -46,6 +47,37 @@ export async function createServer(options = {}) {
         const project = createVideoProject(input, new Date().toISOString())
         await store.saveProject(project)
         return sendJson(response, 201, { project })
+      }
+      if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/codex\/(storyboard|scene_plan|source)$/.test(url.pathname)) {
+        const [, videoId, stage] = url.pathname.match(/^\/api\/projects\/([^/]+)\/codex\/(storyboard|scene_plan|source)$/)
+        const project = await store.loadProject(videoId)
+        const result = await runCodexStage({
+          repoRoot,
+          videoId,
+          stage,
+          projectTitle: project.title,
+          testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
+        })
+        if (stage === 'storyboard') {
+          project.storyboard = { hook: 'Saved in storyboard.md', beats: ['Saved in storyboard.md'], ending: 'Saved in storyboard.md', tone: 'Saved in storyboard.md' }
+          project.status = 'storyboard'
+        }
+        if (stage === 'scene_plan') {
+          project.scenePlan = JSON.parse(await readFile(resolveInside(repoRoot, `media/videos/${videoId}/scene-plan.json`), 'utf8'))
+          project.status = 'scene_plan'
+        }
+        if (stage === 'source') {
+          project.artifacts.sourceBundle = {
+            sourceFolder: `media/videos/${videoId}/hyperframes`,
+            entryFile: `media/videos/${videoId}/hyperframes/index.html`,
+            manifestPath: `media/videos/${videoId}/hyperframes/source-manifest.json`,
+            status: 'source_ready',
+          }
+          project.status = 'source_ready'
+        }
+        project.updatedAt = new Date().toISOString()
+        await store.saveProject(project)
+        return sendJson(response, 200, { result, project })
       }
       if (request.method === 'GET' && url.pathname.startsWith('/media/videos/')) return sendMedia(repoRoot, request, response)
 

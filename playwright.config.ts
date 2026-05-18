@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
+import { existsSync } from 'node:fs'
+
+const chromiumExecutablePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
+  (existsSync('/usr/bin/google-chrome-stable') ? '/usr/bin/google-chrome-stable' : undefined)
 
 const webServer = process.env.VIDEO_CREATOR_E2E === '1'
   ? [
@@ -26,7 +31,7 @@ export default defineConfig({
     {
       name: 'chromium',
       testMatch: /tests\/e2e\/.*\.(spec|test)\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5173' },
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5173', launchOptions: { executablePath: chromiumExecutablePath } },
     },
   ],
   webServer,

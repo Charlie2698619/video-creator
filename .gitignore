@@ -23,6 +23,14 @@ README.md
 docs/
 .project/
 
+# Runtime media
+media/videos/*
+!media/videos/.gitkeep
+
+# Test artifacts
+test-results/
+playwright-report/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

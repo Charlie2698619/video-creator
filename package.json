@@ -4,10 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 127.0.0.1",
+    "server": "node server/index.js",
+    "local": "node server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "playwright test tests/unit",
+    "test:e2e": "VIDEO_CREATOR_E2E=1 playwright test tests/e2e",
+    "verify": "npm run lint && npm run build && npm run test"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -68,7 +68,37 @@ async function writeTestArtifact(repoRoot, videoId, stage) {
   await mkdir(hyperframes, { recursive: true })
   await writeFile(
     resolveInside(hyperframes, 'index.html'),
-    '<!doctype html><html><body><main style="width:1080px;height:1920px">Test</main></body></html>\n',
+    `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Test HyperFrames Source</title>
+    <style>
+      body { margin: 0; background: #0f172a; }
+      #hf-root {
+        width: 1080px;
+        height: 1920px;
+        display: grid;
+        place-items: center;
+        color: #f8fafc;
+        font: 72px/1.1 system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="hf-root" data-composition-id="video-test" data-start="0" data-duration="1" data-width="1080" data-height="1920" data-track-index="0">
+      Test
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.set("#hf-root", { opacity: 1 }, 0);
+      window.__timelines["video-test"] = tl;
+    </script>
+  </body>
+</html>
+`,
     'utf8',
   )
   await writeFile(resolveInside(hyperframes, 'source-manifest.json'), '{"entryFile":"index.html","width":1080,"height":1920}\n', 'utf8')

@@ -1,6 +1,7 @@
 import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { runCodexStage } from './codex-runner.js'
+import { renderHyperFrames } from './hyperframes-renderer.js'
 import { createVideoProject } from './project-model.js'
 import { createProjectStore } from './project-store.js'
 import { getRepoRoot, resolveInside } from './paths.js'
@@ -78,6 +79,20 @@ export async function createServer(options = {}) {
         project.updatedAt = new Date().toISOString()
         await store.saveProject(project)
         return sendJson(response, 200, { result, project })
+      }
+      if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/render$/.test(url.pathname)) {
+        const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/render$/)
+        const renderResult = await renderHyperFrames({
+          repoRoot,
+          videoId,
+          testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
+        })
+        const project = await store.loadProject(videoId)
+        project.artifacts.renderResult = renderResult
+        project.status = 'rendered'
+        project.updatedAt = new Date().toISOString()
+        await store.saveProject(project)
+        return sendJson(response, 200, { project })
       }
       if (request.method === 'GET' && url.pathname.startsWith('/media/videos/')) return sendMedia(repoRoot, request, response)
 

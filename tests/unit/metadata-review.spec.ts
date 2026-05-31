@@ -10,6 +10,7 @@ test('does not mark a video reviewed until every required check passes', () => {
     canMarkReviewed({
       ...checklist,
       mp4Exists: true,
+      mp4HasAudioStream: true,
       aspectRatioIsPortrait: true,
       durationMatchesPlan: true,
       textReadable: true,

@@ -7,6 +7,8 @@ import { generateNarrationAudio } from './narration.js'
 import { createVideoProject } from './project-model.js'
 import { createProjectStore } from './project-store.js'
 import { buildReviewChecklist, isChecklistApproved } from './review-checklist.js'
+import { normalizeScenePlan } from './scene-plan.js'
+import { buildHyperFramesSource } from './source-builder.js'
 import { getRepoRoot, resolveInside } from './paths.js'
 import { createThumbnail } from './thumbnailer.js'
 
@@ -119,6 +121,22 @@ export async function createServer(options = {}) {
       if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/codex\/(storyboard|scene_plan|narration|source)$/.test(url.pathname)) {
         const [, videoId, stage] = url.pathname.match(/^\/api\/projects\/([^/]+)\/codex\/(storyboard|scene_plan|narration|source)$/)
         const project = await loadProjectOr404(store, videoId)
+        if (stage === 'source') {
+          if (!project.scenePlan) throw invalidState('SCENE_PLAN_REQUIRED', 'Scene plan is required before source generation.')
+          if (!project.narration?.audioPath) throw invalidState('NARRATION_AUDIO_REQUIRED', 'Narration audio is required before source generation.')
+          const sourceBundle = await buildHyperFramesSource({ repoRoot, project })
+          const nextProject = {
+            ...project,
+            artifacts: { ...project.artifacts, sourceBundle },
+            status: 'source_ready',
+            updatedAt: new Date().toISOString(),
+          }
+          await store.saveProject(nextProject)
+          return sendJson(response, 200, {
+            result: { status: 'completed', artifactPath: sourceBundle.manifestPath, promptPath: null },
+            project: nextProject,
+          })
+        }
         const result = await runCodexStage({
           repoRoot,
           videoId,
@@ -138,7 +156,7 @@ export async function createServer(options = {}) {
         if (stage === 'scene_plan') {
           nextProject = {
             ...project,
-            scenePlan: JSON.parse(await readFile(resolveInside(repoRoot, `media/videos/${videoId}/scene-plan.json`), 'utf8')),
+            scenePlan: normalizeScenePlan(JSON.parse(await readFile(resolveInside(repoRoot, `media/videos/${videoId}/scene-plan.json`), 'utf8'))),
             status: 'scene_plan',
           }
         }
@@ -153,21 +171,6 @@ export async function createServer(options = {}) {
               status: 'script_ready',
             },
             status: 'narration_script',
-          }
-        }
-        if (stage === 'source') {
-          nextProject = {
-            ...project,
-            artifacts: {
-              ...project.artifacts,
-              sourceBundle: {
-                sourceFolder: `media/videos/${videoId}/hyperframes`,
-                entryFile: `media/videos/${videoId}/hyperframes/index.html`,
-                manifestPath: `media/videos/${videoId}/hyperframes/source-manifest.json`,
-                status: 'source_ready',
-              },
-            },
-            status: 'source_ready',
           }
         }
         nextProject = { ...nextProject, updatedAt: new Date().toISOString() }

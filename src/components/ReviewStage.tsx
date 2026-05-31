@@ -12,6 +12,7 @@ type ReviewStageProps = {
 
 const checklistLabels: Array<{ key: keyof Omit<ReviewChecklist, 'humanDecision' | 'reviewedAt'>; label: string }> = [
   { key: 'mp4Exists', label: 'MP4 exists' },
+  { key: 'mp4HasAudioStream', label: 'MP4 has audio' },
   { key: 'aspectRatioIsPortrait', label: 'Portrait aspect ratio' },
   { key: 'durationMatchesPlan', label: 'Duration matches plan' },
   { key: 'textReadable', label: 'Text readable' },

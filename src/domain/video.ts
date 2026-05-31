@@ -84,6 +84,7 @@ export type Thumbnail = {
 
 export type ReviewChecklist = {
   mp4Exists: boolean
+  mp4HasAudioStream: boolean
   aspectRatioIsPortrait: boolean
   durationMatchesPlan: boolean
   textReadable: boolean

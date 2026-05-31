@@ -1,10 +1,23 @@
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { getVideoRoot, resolveInside } from './paths.js'
 
 export function buildTtsArgs(scriptPath, outputPath, voice) {
   return ['--yes', 'hyperframes', 'tts', scriptPath, '--voice', voice, '--output', outputPath]
+}
+
+export function buildTtsEnv(repoRoot, baseEnv = process.env) {
+  const venvRoot = path.join(repoRoot, '.venv-tts-py312')
+  const venvBin = path.join(venvRoot, 'bin')
+  if (!existsSync(venvBin)) return baseEnv
+
+  return {
+    ...baseEnv,
+    PATH: `${venvBin}${path.delimiter}${baseEnv.PATH ?? ''}`,
+    VIRTUAL_ENV: venvRoot,
+  }
 }
 
 function createSilentWav({ durationSeconds, sampleRate = 44_100 }) {
@@ -31,9 +44,9 @@ function createSilentWav({ durationSeconds, sampleRate = 44_100 }) {
   return buffer
 }
 
-async function runTts(scriptPath, outputPath, voice) {
+async function runTts(scriptPath, outputPath, voice, env) {
   await new Promise((resolve, reject) => {
-    const child = spawn('npx', buildTtsArgs(scriptPath, outputPath, voice), { stdio: ['ignore', 'ignore', 'pipe'] })
+    const child = spawn('npx', buildTtsArgs(scriptPath, outputPath, voice), { env, stdio: ['ignore', 'ignore', 'pipe'] })
     let stderr = ''
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString('utf8')
@@ -57,7 +70,7 @@ export async function generateNarrationAudio({ repoRoot, videoId, scriptPath, vo
   if (testMode) {
     await writeFile(outputPath, createSilentWav({ durationSeconds }))
   } else {
-    await runTts(resolvedScriptPath, outputPath, voice)
+    await runTts(resolvedScriptPath, outputPath, voice, buildTtsEnv(repoRoot))
   }
 
   return {

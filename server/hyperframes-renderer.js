@@ -1,11 +1,32 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { getVideoRoot, resolveInside } from './paths.js'
 
 export function buildHyperFramesRenderArgs({ sourceDir, outputPath }) {
   return ['--yes', 'hyperframes', 'render', sourceDir, '--output', outputPath, '--resolution', 'portrait', '--fps', '30', '--quality', 'standard', '--strict']
+}
+
+export function buildMuxNarrationArgs({ videoOnlyPath, narrationAudioPath, outputPath }) {
+  return [
+    '-y',
+    '-i',
+    videoOnlyPath,
+    '-i',
+    narrationAudioPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '1:a:0',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'aac',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ]
 }
 
 export async function getNextRenderPath(
@@ -32,18 +53,44 @@ async function checksum(filePath) {
 
 async function runProcess(command, args, options = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawn(command, args, { ...options, stdio: ['ignore', 'ignore', 'pipe'] })
-    let stderr = ''
+    const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
+    let output = ''
+    child.stdout.on('data', (chunk) => {
+      output += chunk.toString('utf8')
+    })
     child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString('utf8')
+      output += chunk.toString('utf8')
     })
     child.on('error', reject)
     child.on('close', async (code) => {
-      if (options.logPath) await writeFile(options.logPath, stderr, 'utf8')
+      if (options.logPath) await writeFile(options.logPath, output, 'utf8')
       if (code === 0) resolve()
-      else reject(new Error(stderr || `${command} exited with code ${code}.`))
+      else reject(new Error(output || `${command} exited with code ${code}.`))
     })
   })
+}
+
+async function fileExists(filePath) {
+  try {
+    await stat(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function muxNarrationAudio({ root, outputPath, logPath }) {
+  const narrationAudioPath = resolveInside(root, 'audio', 'narration.wav')
+  if (!(await fileExists(narrationAudioPath))) return
+
+  const videoOnlyPath = outputPath.replace(/\.mp4$/, '.video-only.mp4')
+  await rm(videoOnlyPath, { force: true })
+  await rename(outputPath, videoOnlyPath)
+  try {
+    await runProcess('ffmpeg', buildMuxNarrationArgs({ videoOnlyPath, narrationAudioPath, outputPath }), { logPath })
+  } finally {
+    await rm(videoOnlyPath, { force: true })
+  }
 }
 
 export async function renderHyperFrames({ repoRoot, videoId, testMode = false }) {
@@ -100,6 +147,7 @@ export async function renderHyperFrames({ repoRoot, videoId, testMode = false })
   }
 
   await runProcess('npx', buildHyperFramesRenderArgs({ sourceDir, outputPath }), { cwd: repoRoot, logPath })
+  await muxNarrationAudio({ root, outputPath, logPath })
 
   return {
     mp4Path: path.relative(repoRoot, outputPath),

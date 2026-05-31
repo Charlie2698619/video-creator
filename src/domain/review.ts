@@ -3,6 +3,7 @@ import type { ReviewChecklist } from './video'
 export function createDefaultChecklist(): ReviewChecklist {
   return {
     mp4Exists: false,
+    mp4HasAudioStream: false,
     aspectRatioIsPortrait: false,
     durationMatchesPlan: false,
     textReadable: false,
@@ -19,6 +20,7 @@ export function createDefaultChecklist(): ReviewChecklist {
 export function canMarkReviewed(checklist: ReviewChecklist): boolean {
   return (
     checklist.mp4Exists &&
+    checklist.mp4HasAudioStream &&
     checklist.aspectRatioIsPortrait &&
     checklist.durationMatchesPlan &&
     checklist.textReadable &&

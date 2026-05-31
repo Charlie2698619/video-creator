@@ -1,10 +1,15 @@
+import { execFile } from 'node:child_process'
 import { stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { getVideoRoot, resolveInside } from './paths.js'
+
+const execFileAsync = promisify(execFile)
 
 export function isChecklistApproved(checklist) {
   return (
     checklist.mp4Exists &&
+    checklist.mp4HasAudioStream &&
     checklist.aspectRatioIsPortrait &&
     checklist.durationMatchesPlan &&
     checklist.textReadable &&
@@ -16,6 +21,25 @@ export function isChecklistApproved(checklist) {
     checklist.humanDecision === 'approved' &&
     Boolean(checklist.reviewedAt)
   )
+}
+
+async function mp4HasAudioStream(filePath) {
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-select_streams',
+      'a',
+      '-show_entries',
+      'stream=codec_type',
+      '-of',
+      'csv=p=0',
+      filePath,
+    ])
+    return stdout.trim().split(/\s+/).includes('audio')
+  } catch {
+    return false
+  }
 }
 
 export async function buildReviewChecklist({ repoRoot, project, humanDecision, textReadable }) {
@@ -30,6 +54,7 @@ export async function buildReviewChecklist({ repoRoot, project, humanDecision, t
 
   const checklist = {
     mp4Exists: project.artifacts.renderResult ? await hasFile(project.artifacts.renderResult.mp4Path) : false,
+    mp4HasAudioStream: project.artifacts.renderResult ? await mp4HasAudioStream(resolveInside(repoRoot, project.artifacts.renderResult.mp4Path)) : false,
     aspectRatioIsPortrait: project.artifacts.renderResult?.width === 1080 && project.artifacts.renderResult?.height === 1920,
     durationMatchesPlan: project.scenePlan ? project.artifacts.renderResult?.durationSeconds === project.scenePlan.totalDurationSeconds : true,
     textReadable: textReadable === true,

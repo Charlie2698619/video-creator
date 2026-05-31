@@ -1,16 +1,30 @@
 import { spawn } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, stat, writeFile } from 'node:fs/promises'
 import { getVideoRoot, resolveInside } from './paths.js'
 
 const allowedStages = new Set(['storyboard', 'scene_plan', 'narration', 'source'])
+
+function getStageArtifactPath(videoId, stage) {
+  const root = `media/videos/${videoId}`
+  if (stage === 'storyboard') return `${root}/storyboard.md`
+  if (stage === 'scene_plan') return `${root}/scene-plan.json`
+  if (stage === 'narration') return `${root}/audio/narration.txt`
+  return `${root}/hyperframes/source-manifest.json`
+}
 
 export function buildCodexArgs(repoRoot, lastMessagePath) {
   return ['exec', '--sandbox', 'workspace-write', '--cd', repoRoot, '--output-last-message', lastMessagePath, '--json', '-']
 }
 
 export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudioPath = null }) {
+  const guardrails = [
+    'Complete only this artifact-generation task.',
+    'Write the requested file path(s) directly, then stop.',
+    'Do not run tests, inspect unrelated files, create extra docs, or perform a verification pass.',
+  ].join('\n')
   if (stage === 'storyboard') {
     return [
+      guardrails,
       `Create a short-video storyboard for "${projectTitle}".`,
       `Write ${videoRoot}/storyboard.md with Hook, Beats, Ending, and Tone sections.`,
       'Do not create social posts, platform variants, analytics, calendars, or publishing assets.',
@@ -18,13 +32,15 @@ export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudi
   }
   if (stage === 'scene_plan') {
     return [
+      guardrails,
       `Create a 30-second 9:16 scene plan for "${projectTitle}".`,
-      `Write ${videoRoot}/scene-plan.json with scenes, timing, visualDirection, onScreenText, motionNotes, audioNotes, and acceptanceCriteria.`,
+      `Write ${videoRoot}/scene-plan.json as JSON with exactly this top-level shape: {"scenes":[{"sceneNumber":1,"durationSeconds":5,"visualDirection":"...","onScreenText":"...","motionNotes":"...","audioNotes":"...","acceptanceCriteria":["..."]}],"totalDurationSeconds":30}.`,
       'Audio is optional scene metadata.',
     ].join('\n')
   }
   if (stage === 'narration') {
     return [
+      guardrails,
       `Create a 30-second AI narration script for "${projectTitle}".`,
       `Write ${videoRoot}/audio/narration.txt as a plain text narration script.`,
       'Keep it to 65-85 spoken words, one voice, no markdown, no scene labels, no music cues, no social publishing copy.',
@@ -38,11 +54,21 @@ export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudi
       ].join('\n')
     : 'No narration audio is available; do not create placeholder audio.'
   return [
+    guardrails,
     `Create HyperFrames source for "${projectTitle}".`,
     `Write ${videoRoot}/hyperframes/index.html and ${videoRoot}/hyperframes/source-manifest.json.`,
     'The composition must be 1080x1920 portrait and renderable by HyperFrames.',
     audioInstruction,
   ].join('\n')
+}
+
+async function artifactExists(repoRoot, artifactPath) {
+  try {
+    await stat(resolveInside(repoRoot, artifactPath))
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = null) {
@@ -138,25 +164,43 @@ export async function runCodexStage({ repoRoot, videoId, stage, projectTitle, na
   const prompt = buildStagePrompt({ stage, projectTitle, videoRoot: relativeRoot, narrationAudioPath })
   const promptPath = resolveInside(videoRoot, `codex-${stage}.prompt.txt`)
   const lastMessagePath = resolveInside(videoRoot, `codex-${stage}.last-message.txt`)
+  const artifactPath = getStageArtifactPath(videoId, stage)
+  const timeoutMs = Number(process.env.CODEX_STAGE_TIMEOUT_MS ?? 180_000)
   await writeFile(promptPath, prompt, 'utf8')
 
   if (testMode) {
     return { status: 'completed', artifactPath: await writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath), promptPath }
   }
 
-  await new Promise((resolve, reject) => {
+  let codexError = null
+  await new Promise((resolve) => {
     const child = spawn('codex', buildCodexArgs(repoRoot, lastMessagePath), { stdio: ['pipe', 'ignore', 'pipe'] })
     let stderr = ''
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM')
+    }, timeoutMs)
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString('utf8')
     })
-    child.on('error', reject)
+    child.on('error', (error) => {
+      clearTimeout(timeout)
+      codexError = error
+      resolve()
+    })
     child.on('close', (code) => {
+      clearTimeout(timeout)
       if (code === 0) resolve()
-      else reject(new Error(stderr || `Codex exited with code ${code}.`))
+      else {
+        codexError = new Error(stderr || `Codex exited with code ${code}.`)
+        resolve()
+      }
     })
     child.stdin.end(prompt)
   })
 
-  return { status: 'completed', artifactPath: relativeRoot, promptPath }
+  if (!(await artifactExists(repoRoot, artifactPath))) {
+    throw codexError ?? new Error(`Codex did not create ${artifactPath}.`)
+  }
+
+  return { status: 'completed', artifactPath, promptPath }
 }

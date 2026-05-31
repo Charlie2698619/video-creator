@@ -85,8 +85,33 @@ async function writeDeclaredArtifacts(repoRoot, project) {
   await writeFile(path.join(repoRoot, project.narration.scriptPath), 'Narration script.', 'utf8')
   await writeFile(path.join(repoRoot, project.narration.audioPath), 'wav-bytes', 'utf8')
   await writeFile(path.join(repoRoot, project.artifacts.sourceBundle.manifestPath), '{"ok":true}\n', 'utf8')
-  await writeFile(path.join(repoRoot, project.artifacts.renderResult.mp4Path), 'mp4-bytes', 'utf8')
+  await writeRenderMp4(path.join(repoRoot, project.artifacts.renderResult.mp4Path), { withAudio: true })
   await writeFile(path.join(repoRoot, project.artifacts.thumbnail.path), 'png-bytes', 'utf8')
+}
+
+async function writeRenderMp4(filePath, { withAudio }) {
+  const baseArgs = ['-y', '-f', 'lavfi', '-i', 'color=c=black:s=108x192:d=1:r=1']
+  const args = withAudio
+    ? [
+        ...baseArgs,
+        '-f',
+        'lavfi',
+        '-i',
+        'sine=frequency=440:duration=1',
+        '-map',
+        '0:v:0',
+        '-map',
+        '1:a:0',
+        '-pix_fmt',
+        'yuv420p',
+        '-c:v',
+        'libx264',
+        '-c:a',
+        'aac',
+        filePath,
+      ]
+    : [...baseArgs, '-pix_fmt', 'yuv420p', filePath]
+  await execFileAsync('ffmpeg', args)
 }
 
 test('createThumbnail writes a portrait PNG with a checksum', async () => {
@@ -166,9 +191,34 @@ test('buildReviewChecklist requires human readable-text confirmation for approva
     })
 
     expect(checklistPath).toBe(`media/videos/${project.id}/review-checklist.json`)
+    expect(checklist.mp4HasAudioStream).toBe(true)
     expect(checklist.textReadable).toBe(false)
     expect(checklist.humanDecision).toBe('approved')
     expect(checklist.reviewedAt).toMatch(/^2026-|^20/)
+    expect(isChecklistApproved(checklist)).toBe(false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('buildReviewChecklist rejects rendered MP4s without an audio stream', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'review-no-audio-'))
+  const project = completeProject()
+
+  try {
+    await writeDeclaredArtifacts(root, project)
+    await writeRenderMp4(path.join(root, project.artifacts.renderResult.mp4Path), { withAudio: false })
+    await writeMetadata({ repoRoot: root, project })
+
+    const { checklist } = await buildReviewChecklist({
+      repoRoot: root,
+      project,
+      humanDecision: 'approved',
+      textReadable: true,
+    })
+
+    expect(checklist.mp4Exists).toBe(true)
+    expect(checklist.mp4HasAudioStream).toBe(false)
     expect(isChecklistApproved(checklist)).toBe(false)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -191,6 +241,7 @@ test('buildReviewChecklist records rejected human decisions without approving', 
     })
 
     expect(checklist.mp4Exists).toBe(true)
+    expect(checklist.mp4HasAudioStream).toBe(true)
     expect(checklist.thumbnailExists).toBe(true)
     expect(checklist.metadataValid).toBe(true)
     expect(checklist.humanDecision).toBe('rejected')

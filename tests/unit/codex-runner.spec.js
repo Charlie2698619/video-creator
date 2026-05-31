@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
@@ -90,6 +90,52 @@ test('test mode writes a deterministic narration script', async () => {
     expect(result.status).toBe('completed')
     expect(result.artifactPath).toBe('media/videos/video-1/audio/narration.txt')
   } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('real mode reports the narration script file path after Codex completes', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codex-real-narration-'))
+  const binDir = path.join(root, 'bin')
+  const fakeCodex = path.join(binDir, 'codex')
+  const originalPath = process.env.PATH
+
+  try {
+    await mkdir(binDir, { recursive: true })
+    await writeFile(
+      fakeCodex,
+      `#!/usr/bin/env bash
+repo=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--cd" ]; then
+    repo="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+cat >/dev/null
+mkdir -p "$repo/media/videos/video-1/audio"
+printf 'Narration script.\\n' > "$repo/media/videos/video-1/audio/narration.txt"
+exit 0
+`,
+      'utf8',
+    )
+    await chmod(fakeCodex, 0o755)
+    process.env.PATH = `${binDir}:${originalPath ?? ''}`
+
+    const result = await runCodexStage({
+      repoRoot: root,
+      videoId: 'video-1',
+      stage: 'narration',
+      projectTitle: 'Real mode',
+      testMode: false,
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.artifactPath).toBe('media/videos/video-1/audio/narration.txt')
+  } finally {
+    process.env.PATH = originalPath
     await rm(root, { recursive: true, force: true })
   }
 })

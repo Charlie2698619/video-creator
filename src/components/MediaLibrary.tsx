@@ -12,11 +12,11 @@ export function MediaLibrary({ projects }: MediaLibraryProps) {
   return (
     <section className="media-library" aria-labelledby="media-library">
       <div className="stage-heading">
-        <p>Stage 7</p>
+        <p>Stage 8</p>
         <h2 id="media-library">Media Library</h2>
       </div>
       {libraryProjects.length === 0 ? (
-        <p>No source or render artifacts yet.</p>
+        <p>No library-ready media yet.</p>
       ) : (
         <ul>
           {libraryProjects.map((project) => (

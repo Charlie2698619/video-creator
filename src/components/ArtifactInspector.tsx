@@ -31,6 +31,10 @@ export function ArtifactInspector({ project, error, pending }: ArtifactInspector
               <dd>{project.artifacts.sourceBundle?.manifestPath ?? paths.hyperframes}</dd>
             </div>
             <div>
+              <dt>Narration</dt>
+              <dd>{project.narration?.audioPath ?? project.narration?.scriptPath ?? paths.narrationAudio}</dd>
+            </div>
+            <div>
               <dt>MP4</dt>
               <dd>{project.artifacts.renderResult?.mp4Path ?? paths.renders}</dd>
             </div>

@@ -10,6 +10,7 @@ export function isChecklistApproved(checklist) {
     checklist.textReadable &&
     checklist.thumbnailExists &&
     checklist.metadataValid &&
+    checklist.narrationAudioExists &&
     checklist.sourcePreserved &&
     checklist.noFailedArtifactMarkedComplete &&
     checklist.humanDecision === 'approved' &&
@@ -17,7 +18,7 @@ export function isChecklistApproved(checklist) {
   )
 }
 
-export async function buildReviewChecklist({ repoRoot, project, humanDecision }) {
+export async function buildReviewChecklist({ repoRoot, project, humanDecision, textReadable }) {
   const hasFile = async (relativePath) => {
     try {
       await stat(resolveInside(repoRoot, relativePath))
@@ -31,13 +32,14 @@ export async function buildReviewChecklist({ repoRoot, project, humanDecision })
     mp4Exists: project.artifacts.renderResult ? await hasFile(project.artifacts.renderResult.mp4Path) : false,
     aspectRatioIsPortrait: project.artifacts.renderResult?.width === 1080 && project.artifacts.renderResult?.height === 1920,
     durationMatchesPlan: project.scenePlan ? project.artifacts.renderResult?.durationSeconds === project.scenePlan.totalDurationSeconds : true,
-    textReadable: true,
+    textReadable: textReadable === true,
     thumbnailExists: project.artifacts.thumbnail ? await hasFile(project.artifacts.thumbnail.path) : false,
     metadataValid: project.artifacts.metadataPath ? await hasFile(project.artifacts.metadataPath) : false,
+    narrationAudioExists: project.narration?.audioPath ? await hasFile(project.narration.audioPath) : false,
     sourcePreserved: project.artifacts.sourceBundle ? await hasFile(project.artifacts.sourceBundle.manifestPath) : false,
     noFailedArtifactMarkedComplete: project.failure === null,
     humanDecision,
-    reviewedAt: humanDecision === 'approved' ? new Date().toISOString() : null,
+    reviewedAt: humanDecision === 'pending' ? null : new Date().toISOString(),
   }
   const root = getVideoRoot(repoRoot, project.id)
   const checklistPath = resolveInside(root, 'review-checklist.json')

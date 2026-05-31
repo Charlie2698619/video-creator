@@ -10,13 +10,27 @@ async function checksum(repoRoot, relativePath) {
 export async function writeMetadata({ repoRoot, project }) {
   const root = getVideoRoot(repoRoot, project.id)
   const metadataPath = resolveInside(root, 'metadata.json')
-  const required = [project.artifacts.sourceBundle?.manifestPath, project.artifacts.renderResult?.mp4Path, project.artifacts.thumbnail?.path].filter(Boolean)
+  const required = [
+    project.narration?.scriptPath,
+    project.narration?.audioPath,
+    project.artifacts.sourceBundle?.manifestPath,
+    project.artifacts.renderResult?.mp4Path,
+    project.artifacts.thumbnail?.path,
+  ].filter(Boolean)
   for (const relativePath of required) await stat(resolveInside(repoRoot, relativePath))
 
   const metadata = {
     videoId: project.id,
     title: project.title,
     ideaSummary: project.idea.summary,
+    narration: project.narration
+      ? {
+          scriptPath: project.narration.scriptPath,
+          audioPath: project.narration.audioPath,
+          voice: project.narration.voice,
+          durationSeconds: project.narration.durationSeconds,
+        }
+      : null,
     sourcePaths: project.artifacts.sourceBundle ? [project.artifacts.sourceBundle.sourceFolder, project.artifacts.sourceBundle.manifestPath] : [],
     mp4Path: project.artifacts.renderResult?.mp4Path ?? null,
     thumbnailPath: project.artifacts.thumbnail?.path ?? null,
@@ -28,6 +42,7 @@ export async function writeMetadata({ repoRoot, project }) {
     reviewStatus: project.status,
     checksums: {
       mp4: project.artifacts.renderResult ? await checksum(repoRoot, project.artifacts.renderResult.mp4Path) : null,
+      narrationAudio: project.narration?.audioPath ? await checksum(repoRoot, project.narration.audioPath) : null,
       thumbnail: project.artifacts.thumbnail ? await checksum(repoRoot, project.artifacts.thumbnail.path) : null,
     },
   }

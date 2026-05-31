@@ -21,6 +21,7 @@ export function createVideoProject(input, nowIso) {
     idea: { title, summary, takeaway, references, targetDurationSeconds },
     storyboard: null,
     scenePlan: null,
+    narration: null,
     artifacts: {
       sourceBundle: null,
       renderResult: null,

@@ -15,6 +15,7 @@ test('does not mark a video reviewed until every required check passes', () => {
       textReadable: true,
       thumbnailExists: true,
       metadataValid: true,
+      narrationAudioExists: true,
       sourcePreserved: true,
       noFailedArtifactMarkedComplete: true,
       humanDecision: 'approved',

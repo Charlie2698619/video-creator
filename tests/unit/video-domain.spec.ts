@@ -14,6 +14,7 @@ test('creates an idea-stage project with a 30 second default', () => {
 
   expect(project.status).toBe('idea')
   expect(project.idea.targetDurationSeconds).toBe(30)
+  expect(project.narration).toBeNull()
   expect(project.artifacts.sourceBundle).toBeNull()
   expect(videoStatuses).toContain('reviewed')
 })

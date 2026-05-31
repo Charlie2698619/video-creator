@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { StageProgress } from './StageProgress'
 
 type IdeaStageProps = {
   onSave: (input: { title: string; summary: string; takeaway: string; references: string[] }) => Promise<void>
   disabled: boolean
+  pendingLabel: string | null
 }
 
-export function IdeaStage({ onSave, disabled }: IdeaStageProps) {
+export function IdeaStage({ onSave, disabled, pendingLabel }: IdeaStageProps) {
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [takeaway, setTakeaway] = useState('')
@@ -38,6 +40,7 @@ export function IdeaStage({ onSave, disabled }: IdeaStageProps) {
         <button className="primary-action" type="submit" disabled={disabled}>
           Save idea
         </button>
+        <StageProgress label={pendingLabel} />
       </form>
     </section>
   )

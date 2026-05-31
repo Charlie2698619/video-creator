@@ -16,6 +16,9 @@ dist-ssr
 .env
 .env.*
 !.env.example
+.codex
+.codex/
+.venv*/
 
 # Local planning/docs; keep GitHub focused on source and dependency manifests
 AGENTS.md

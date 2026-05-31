@@ -8,6 +8,7 @@ export function createDefaultChecklist(): ReviewChecklist {
     textReadable: false,
     thumbnailExists: false,
     metadataValid: false,
+    narrationAudioExists: false,
     sourcePreserved: false,
     noFailedArtifactMarkedComplete: false,
     humanDecision: 'pending',
@@ -23,6 +24,7 @@ export function canMarkReviewed(checklist: ReviewChecklist): boolean {
     checklist.textReadable &&
     checklist.thumbnailExists &&
     checklist.metadataValid &&
+    checklist.narrationAudioExists &&
     checklist.sourcePreserved &&
     checklist.noFailedArtifactMarkedComplete &&
     checklist.humanDecision === 'approved' &&

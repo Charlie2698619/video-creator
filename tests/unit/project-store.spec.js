@@ -19,6 +19,7 @@ test('saves and loads a project record under media/videos', async () => {
       idea: { title: 'Stored project', summary: 'A', takeaway: 'B', references: [], targetDurationSeconds: 30 },
       storyboard: null,
       scenePlan: null,
+      narration: null,
       artifacts: { sourceBundle: null, renderResult: null, thumbnail: null, metadataPath: null, reviewChecklistPath: null },
       reviewChecklist: null,
       failure: null,
@@ -56,6 +57,58 @@ test('creates a project through the loopback API', async () => {
     const body = await response.json()
     expect(body.project.title).toBe('API project')
     expect(body.project.status).toBe('idea')
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('loads one project through the loopback API', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'video-api-get-'))
+  const server = await createServer({ repoRoot: root, host: '127.0.0.1', port: 0 })
+
+  try {
+    const address = server.address()
+    const createdResponse = await fetch(`http://127.0.0.1:${address.port}/api/projects`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Single API project',
+        summary: 'A project loaded through the local server.',
+        takeaway: 'The API can return one project.',
+        references: [],
+      }),
+    })
+    const created = await createdResponse.json()
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/projects/${created.project.id}`)
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.project.id).toBe(created.project.id)
+    expect(body.project.title).toBe('Single API project')
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('returns structured API errors', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'video-api-errors-'))
+  const server = await createServer({ repoRoot: root, host: '127.0.0.1', port: 0 })
+
+  try {
+    const address = server.address()
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/projects/video-20990101000000`)
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: 'PROJECT_NOT_FOUND',
+        category: 'not_found',
+        message: 'Project not found.',
+      },
+    })
   } finally {
     await new Promise((resolve) => server.close(resolve))
     await rm(root, { recursive: true, force: true })

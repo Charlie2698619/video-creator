@@ -2,13 +2,13 @@ import { spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { getVideoRoot, resolveInside } from './paths.js'
 
-const allowedStages = new Set(['storyboard', 'scene_plan', 'source'])
+const allowedStages = new Set(['storyboard', 'scene_plan', 'narration', 'source'])
 
 export function buildCodexArgs(repoRoot, lastMessagePath) {
   return ['exec', '--sandbox', 'workspace-write', '--cd', repoRoot, '--output-last-message', lastMessagePath, '--json', '-']
 }
 
-export function buildStagePrompt({ stage, projectTitle, videoRoot }) {
+export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudioPath = null }) {
   if (stage === 'storyboard') {
     return [
       `Create a short-video storyboard for "${projectTitle}".`,
@@ -23,14 +23,29 @@ export function buildStagePrompt({ stage, projectTitle, videoRoot }) {
       'Audio is optional scene metadata.',
     ].join('\n')
   }
+  if (stage === 'narration') {
+    return [
+      `Create a 30-second AI narration script for "${projectTitle}".`,
+      `Write ${videoRoot}/audio/narration.txt as a plain text narration script.`,
+      'Keep it to 65-85 spoken words, one voice, no markdown, no scene labels, no music cues, no social publishing copy.',
+    ].join('\n')
+  }
+  const audioInstruction = narrationAudioPath
+    ? [
+        `A narration WAV exists at ${narrationAudioPath}.`,
+        'Include it as a separate top-level audio clip in index.html:',
+        '<audio id="narration" data-start="0" data-duration="30" data-track-index="20" src="../audio/narration.wav" data-volume="1"></audio>',
+      ].join('\n')
+    : 'No narration audio is available; do not create placeholder audio.'
   return [
     `Create HyperFrames source for "${projectTitle}".`,
     `Write ${videoRoot}/hyperframes/index.html and ${videoRoot}/hyperframes/source-manifest.json.`,
     'The composition must be 1080x1920 portrait and renderable by HyperFrames.',
+    audioInstruction,
   ].join('\n')
 }
 
-async function writeTestArtifact(repoRoot, videoId, stage) {
+async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = null) {
   const root = getVideoRoot(repoRoot, videoId)
   await mkdir(root, { recursive: true })
   if (stage === 'storyboard') {
@@ -64,8 +79,17 @@ async function writeTestArtifact(repoRoot, videoId, stage) {
     )
     return `media/videos/${videoId}/scene-plan.json`
   }
+  if (stage === 'narration') {
+    const audioDir = resolveInside(root, 'audio')
+    await mkdir(audioDir, { recursive: true })
+    await writeFile(resolveInside(audioDir, 'narration.txt'), 'Local-first video tools keep creators in control because source files, renders, thumbnails, metadata, and review checks stay visible on disk. Every step leaves an artifact that can be inspected, revised, and archived without waiting on a publishing platform. The final MP4 is easier to trust because the path from idea to render is explicit.\n', 'utf8')
+    return `media/videos/${videoId}/audio/narration.txt`
+  }
   const hyperframes = resolveInside(root, 'hyperframes')
   await mkdir(hyperframes, { recursive: true })
+  const audioTag = narrationAudioPath
+    ? '<audio id="narration" data-start="0" data-duration="30" data-track-index="20" src="../audio/narration.wav" data-volume="1"></audio>'
+    : ''
   await writeFile(
     resolveInside(hyperframes, 'index.html'),
     `<!doctype html>
@@ -86,6 +110,7 @@ async function writeTestArtifact(repoRoot, videoId, stage) {
     </style>
   </head>
   <body>
+    ${audioTag}
     <main id="hf-root" data-composition-id="video-test" data-start="0" data-duration="1" data-width="1080" data-height="1920" data-track-index="0">
       Test
     </main>
@@ -105,18 +130,18 @@ async function writeTestArtifact(repoRoot, videoId, stage) {
   return `media/videos/${videoId}/hyperframes/source-manifest.json`
 }
 
-export async function runCodexStage({ repoRoot, videoId, stage, projectTitle, testMode = false }) {
+export async function runCodexStage({ repoRoot, videoId, stage, projectTitle, narrationAudioPath = null, testMode = false }) {
   if (!allowedStages.has(stage)) throw new Error('Unsupported Codex stage.')
   const videoRoot = getVideoRoot(repoRoot, videoId)
   await mkdir(videoRoot, { recursive: true })
   const relativeRoot = `media/videos/${videoId}`
-  const prompt = buildStagePrompt({ stage, projectTitle, videoRoot: relativeRoot })
+  const prompt = buildStagePrompt({ stage, projectTitle, videoRoot: relativeRoot, narrationAudioPath })
   const promptPath = resolveInside(videoRoot, `codex-${stage}.prompt.txt`)
   const lastMessagePath = resolveInside(videoRoot, `codex-${stage}.last-message.txt`)
   await writeFile(promptPath, prompt, 'utf8')
 
   if (testMode) {
-    return { status: 'completed', artifactPath: await writeTestArtifact(repoRoot, videoId, stage), promptPath }
+    return { status: 'completed', artifactPath: await writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath), promptPath }
   }
 
   await new Promise((resolve, reject) => {

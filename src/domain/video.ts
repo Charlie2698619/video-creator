@@ -4,6 +4,8 @@ export const videoStatuses = [
   'idea',
   'storyboard',
   'scene_plan',
+  'narration_script',
+  'narration_ready',
   'source_ready',
   'rendered',
   'library_ready',
@@ -47,6 +49,14 @@ export type ScenePlan = {
   totalDurationSeconds: number
 }
 
+export type Narration = {
+  scriptPath: string
+  audioPath: string | null
+  voice: string
+  durationSeconds: number
+  status: 'script_ready' | 'audio_ready'
+}
+
 export type SourceBundle = {
   sourceFolder: string
   entryFile: string
@@ -79,6 +89,7 @@ export type ReviewChecklist = {
   textReadable: boolean
   thumbnailExists: boolean
   metadataValid: boolean
+  narrationAudioExists: boolean
   sourcePreserved: boolean
   noFailedArtifactMarkedComplete: boolean
   humanDecision: 'pending' | 'approved' | 'rejected'
@@ -94,6 +105,7 @@ export type VideoProject = {
   idea: Idea
   storyboard: Storyboard | null
   scenePlan: ScenePlan | null
+  narration: Narration | null
   artifacts: {
     sourceBundle: SourceBundle | null
     renderResult: RenderResult | null
@@ -118,6 +130,7 @@ export function createVideoProject(input: IdeaInput, nowIso: string): VideoProje
     idea,
     storyboard: null,
     scenePlan: null,
+    narration: null,
     artifacts: {
       sourceBundle: null,
       renderResult: null,

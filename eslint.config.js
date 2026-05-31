@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'media/videos/*']),
+  globalIgnores(['dist', 'media/videos/*', '.venv*', '.venv*/**', '.codex', '.codex/**', 'test-results', 'playwright-report']),
   {
     files: ['**/*.{js,mjs}'],
     extends: [js.configs.recommended],

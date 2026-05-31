@@ -55,7 +55,38 @@ export async function renderHyperFrames({ repoRoot, videoId, testMode = false })
   const logPath = outputPath.replace(/\.mp4$/, '.log.txt')
 
   if (testMode) {
-    await runProcess('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'color=c=black:s=1080x1920:d=1:r=30', '-pix_fmt', 'yuv420p', outputPath], { logPath })
+    const narrationAudioPath = resolveInside(root, 'audio', 'narration.wav')
+    let hasNarrationAudio
+    try {
+      await stat(narrationAudioPath)
+      hasNarrationAudio = true
+    } catch {
+      hasNarrationAudio = false
+    }
+    const args = hasNarrationAudio
+      ? [
+          '-y',
+          '-f',
+          'lavfi',
+          '-i',
+          'color=c=black:s=1080x1920:d=30:r=30',
+          '-i',
+          narrationAudioPath,
+          '-map',
+          '0:v:0',
+          '-map',
+          '1:a:0',
+          '-pix_fmt',
+          'yuv420p',
+          '-c:v',
+          'libx264',
+          '-c:a',
+          'aac',
+          '-shortest',
+          outputPath,
+        ]
+      : ['-y', '-f', 'lavfi', '-i', 'color=c=black:s=1080x1920:d=30:r=30', '-pix_fmt', 'yuv420p', outputPath]
+    await runProcess('ffmpeg', args, { logPath })
     return {
       mp4Path: path.relative(repoRoot, outputPath),
       width: 1080,

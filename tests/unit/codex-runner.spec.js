@@ -26,11 +26,15 @@ test('builds explicit stage prompts with artifact paths', () => {
   const prompt = buildStagePrompt({
     stage: 'storyboard',
     projectTitle: 'Prompt test',
+    ideaSummary: 'A baker gives away the last peach before the festival.',
+    viewerTakeaway: 'Generosity returns through community care.',
     videoRoot: 'media/videos/video-1',
   })
 
   expect(prompt).toContain('Write media/videos/video-1/storyboard.md')
   expect(prompt).toContain('Do not create social posts')
+  expect(prompt).toContain('A baker gives away the last peach before the festival.')
+  expect(prompt).toContain('Generosity returns through community care.')
 })
 
 test('builds a narration script prompt with the local audio path', () => {
@@ -38,10 +42,12 @@ test('builds a narration script prompt with the local audio path', () => {
     stage: 'narration',
     projectTitle: 'Prompt test',
     videoRoot: 'media/videos/video-1',
+    targetDurationSeconds: 40,
   })
 
   expect(prompt).toContain('Write media/videos/video-1/audio/narration.txt')
   expect(prompt).toContain('plain text narration script')
+  expect(prompt).toContain('140-164 spoken words')
 })
 
 test('source prompt includes generated narration audio when available', () => {

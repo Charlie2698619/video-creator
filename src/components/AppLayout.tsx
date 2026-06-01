@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { videoApi } from '../api/videoApi'
-import type { VideoProject } from '../domain/video'
+import type { GenerationSettings, VideoProject } from '../domain/video'
 import { ArtifactInspector } from './ArtifactInspector'
 import { IdeaStage } from './IdeaStage'
 import { MediaLibrary } from './MediaLibrary'
@@ -25,6 +25,15 @@ type AppLayoutProps = {
 type PendingAction = {
   stage: string
   label: string
+}
+
+type BriefInput = {
+  title: string
+  summary: string
+  takeaway: string
+  references: string[]
+  targetDurationSeconds: number
+  generationSettings: GenerationSettings
 }
 
 const workflowStages = [
@@ -54,8 +63,37 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
     }
   }
 
+  async function runDraft(input: BriefInput) {
+    setPending({ stage: 'draft', label: 'Saving brief...' })
+    onError(null)
+    try {
+      let project = (await videoApi.createProject(input)).project
+      onProjectChanged(project)
+      const steps: Array<{ label: string; action: (videoId: string) => Promise<VideoProject> }> = [
+        { label: 'Creating storyboard...', action: async (videoId) => (await videoApi.runCodexStage(videoId, 'storyboard')).project },
+        { label: 'Creating scene plan...', action: async (videoId) => (await videoApi.runCodexStage(videoId, 'scene_plan')).project },
+        { label: 'Writing narration script...', action: async (videoId) => (await videoApi.runCodexStage(videoId, 'narration')).project },
+        { label: 'Generating AI voiceover...', action: async (videoId) => (await videoApi.generateNarrationAudio(videoId)).project },
+        { label: 'Building video source...', action: async (videoId) => (await videoApi.runCodexStage(videoId, 'source')).project },
+        { label: 'Rendering MP4...', action: async (videoId) => (await videoApi.render(videoId)).project },
+        { label: 'Creating thumbnail...', action: async (videoId) => (await videoApi.thumbnail(videoId)).project },
+        { label: 'Writing metadata...', action: async (videoId) => (await videoApi.metadata(videoId)).project },
+      ]
+
+      for (const step of steps) {
+        setPending({ stage: 'draft', label: step.label })
+        project = await step.action(project.id)
+        onProjectChanged(project)
+      }
+    } catch (caught) {
+      onError(caught instanceof Error ? caught.message : 'Draft generation failed.')
+    } finally {
+      setPending(null)
+    }
+  }
+
   const disabled = Boolean(pending) || loadingProjects
-  const pendingLabelFor = (stage: string) => (pending?.stage === stage ? pending.label : null)
+  const pendingLabelFor = (...stages: string[]) => (pending && stages.includes(pending.stage) ? pending.label : null)
 
   return (
     <main className="app-shell">
@@ -83,8 +121,9 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
         <div className="stage-stack">
           <IdeaStage
             disabled={disabled}
-            pendingLabel={pendingLabelFor('idea')}
+            pendingLabel={pendingLabelFor('idea', 'draft')}
             onSave={(input) => runAction('idea', 'Saving idea...', async () => (await videoApi.createProject(input)).project)}
+            onGenerateDraft={runDraft}
           />
           <StoryboardStage
             project={activeProject}
@@ -109,7 +148,7 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
             project={activeProject}
             disabled={disabled}
             pendingLabel={pendingLabelFor('source')}
-            onCreate={() => runAction('source', 'Creating HyperFrames source...', async () => (await videoApi.runCodexStage(activeProject!.id, 'source')).project)}
+            onCreate={() => runAction('source', 'Building video source...', async () => (await videoApi.runCodexStage(activeProject!.id, 'source')).project)}
           />
           <RenderStage
             project={activeProject}

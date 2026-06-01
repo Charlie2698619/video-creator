@@ -14,7 +14,43 @@ test('creates an idea-stage project with a 30 second default', () => {
 
   expect(project.status).toBe('idea')
   expect(project.idea.targetDurationSeconds).toBe(30)
+  expect(project.idea.generationSettings).toEqual({
+    durationMode: 'voice_led',
+    visualComplexity: 'rich',
+    pacing: 'natural',
+    captions: 'burned_in',
+    audioMix: 'voice_only',
+  })
   expect(project.narration).toBeNull()
   expect(project.artifacts.sourceBundle).toBeNull()
   expect(videoStatuses).toContain('reviewed')
+})
+
+test('accepts human-oriented generation settings', () => {
+  const project = createVideoProject(
+    {
+      title: 'Human tutorial',
+      summary: 'Make a warm explainer.',
+      takeaway: 'Natural pacing makes AI video easier to watch.',
+      references: [],
+      targetDurationSeconds: 45,
+      generationSettings: {
+        durationMode: 'fixed',
+        visualComplexity: 'standard',
+        pacing: 'calm',
+        captions: 'off',
+        audioMix: 'soft_music',
+      },
+    },
+    '2026-05-17T00:00:00.000Z',
+  )
+
+  expect(project.idea.targetDurationSeconds).toBe(45)
+  expect(project.idea.generationSettings).toEqual({
+    durationMode: 'fixed',
+    visualComplexity: 'standard',
+    pacing: 'calm',
+    captions: 'off',
+    audioMix: 'soft_music',
+  })
 })

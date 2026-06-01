@@ -23,6 +23,7 @@ export async function writeMetadata({ repoRoot, project }) {
     videoId: project.id,
     title: project.title,
     ideaSummary: project.idea.summary,
+    generationSettings: project.idea.generationSettings ?? null,
     narration: project.narration
       ? {
           scriptPath: project.narration.scriptPath,

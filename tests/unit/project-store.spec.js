@@ -50,6 +50,14 @@ test('creates a project through the loopback API', async () => {
         summary: 'A project created through the local server.',
         takeaway: 'The API writes local artifacts.',
         references: [],
+        targetDurationSeconds: 45,
+        generationSettings: {
+          durationMode: 'voice_led',
+          visualComplexity: 'rich',
+          pacing: 'natural',
+          captions: 'burned_in',
+          audioMix: 'soft_music',
+        },
       }),
     })
 
@@ -57,6 +65,14 @@ test('creates a project through the loopback API', async () => {
     const body = await response.json()
     expect(body.project.title).toBe('API project')
     expect(body.project.status).toBe('idea')
+    expect(body.project.idea.targetDurationSeconds).toBe(45)
+    expect(body.project.idea.generationSettings).toEqual({
+      durationMode: 'voice_led',
+      visualComplexity: 'rich',
+      pacing: 'natural',
+      captions: 'burned_in',
+      audioMix: 'soft_music',
+    })
   } finally {
     await new Promise((resolve) => server.close(resolve))
     await rm(root, { recursive: true, force: true })

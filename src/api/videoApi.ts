@@ -1,4 +1,4 @@
-import type { VideoProject } from '../domain/video'
+import type { GenerationSettings, VideoProject } from '../domain/video'
 
 type ReviewInput = {
   humanDecision: 'approved' | 'rejected'
@@ -28,7 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const videoApi = {
   listProjects: () => request<{ projects: VideoProject[] }>('/api/projects'),
   getProject: (videoId: string) => request<{ project: VideoProject }>(`/api/projects/${videoId}`),
-  createProject: (input: { title: string; summary: string; takeaway: string; references: string[] }) =>
+  createProject: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds?: number; generationSettings?: GenerationSettings }) =>
     request<{ project: VideoProject }>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
   runCodexStage: (videoId: string, stage: 'storyboard' | 'scene_plan' | 'narration' | 'source') =>
     request<{ result: { status: string; artifactPath: string }; project: VideoProject }>(`/api/projects/${videoId}/codex/${stage}`, { method: 'POST' }),

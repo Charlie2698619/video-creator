@@ -143,6 +143,10 @@ export async function createServer(options = {}) {
           stage,
           projectTitle: project.title,
           narrationAudioPath: project.narration?.audioPath ?? null,
+          targetDurationSeconds: project.idea.targetDurationSeconds,
+          generationSettings: project.idea.generationSettings ?? {},
+          ideaSummary: project.idea.summary,
+          viewerTakeaway: project.idea.takeaway,
           testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
         })
         let nextProject = project

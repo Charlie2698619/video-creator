@@ -16,14 +16,32 @@ export const videoStatuses = [
 
 export type VideoStatus = (typeof videoStatuses)[number]
 
+export const defaultGenerationSettings = {
+  durationMode: 'voice_led',
+  visualComplexity: 'rich',
+  pacing: 'natural',
+  captions: 'burned_in',
+  audioMix: 'voice_only',
+} as const
+
+export const generationSettingsSchema = z.object({
+  durationMode: z.enum(['voice_led', 'fixed']).default('voice_led'),
+  visualComplexity: z.enum(['standard', 'rich']).default('rich'),
+  pacing: z.enum(['calm', 'natural', 'fast']).default('natural'),
+  captions: z.enum(['burned_in', 'off']).default('burned_in'),
+  audioMix: z.enum(['voice_only', 'soft_music']).default('voice_only'),
+})
+
 export const ideaInputSchema = z.object({
   title: z.string().trim().min(1, 'Working title is required.'),
   summary: z.string().trim().min(1, 'Idea summary is required.'),
   takeaway: z.string().trim().min(1, 'Viewer takeaway is required.'),
   references: z.array(z.string().trim()).default([]),
   targetDurationSeconds: z.number().int().min(5).max(120).default(30),
+  generationSettings: generationSettingsSchema.default(defaultGenerationSettings),
 })
 
+export type GenerationSettings = z.output<typeof generationSettingsSchema>
 export type IdeaInput = z.input<typeof ideaInputSchema>
 export type Idea = z.output<typeof ideaInputSchema>
 

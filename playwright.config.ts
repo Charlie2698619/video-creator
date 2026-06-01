@@ -26,6 +26,7 @@ export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
   expect: { timeout: 5_000 },
+  workers: process.env.VIDEO_CREATOR_E2E === '1' ? 1 : undefined,
   projects: [
     { name: 'unit', testMatch: /tests\/unit\/.*\.(spec|test)\.(ts|js)/ },
     {

@@ -131,6 +131,7 @@
 }
 
 input,
+select,
 textarea {
   border: 1px solid #c9d1df;
   border-radius: 6px;
@@ -144,6 +145,39 @@ textarea {
 textarea {
   min-height: 76px;
   resize: vertical;
+}
+
+select {
+  background: #ffffff;
+  min-height: 40px;
+}
+
+.brief-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.48fr);
+}
+
+.brief-fields,
+.tuning-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.tuning-panel {
+  background: #f3f6fb;
+  border: 1px solid #d8dde7;
+  border-radius: 8px;
+  margin: 0;
+  padding: 14px;
+}
+
+.tuning-panel legend {
+  color: #1d2433;
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 0 6px;
 }
 
 button {
@@ -313,6 +347,10 @@ button:disabled {
 
   .workflow-rail {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brief-grid {
+    grid-template-columns: 1fr;
   }
 
   .artifact-inspector {

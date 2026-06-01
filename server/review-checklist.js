@@ -42,6 +42,18 @@ async function mp4HasAudioStream(filePath) {
   }
 }
 
+function getExpectedDurationSeconds(project) {
+  if (project.idea?.generationSettings?.durationMode === 'voice_led' && Number.isFinite(project.narration?.durationSeconds)) {
+    return Math.max(project.scenePlan?.totalDurationSeconds ?? 0, project.narration.durationSeconds)
+  }
+  return project.scenePlan?.totalDurationSeconds ?? project.artifacts.renderResult?.durationSeconds
+}
+
+function durationsMatch(actual, expected) {
+  if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false
+  return Math.abs(actual - expected) <= 0.1
+}
+
 export async function buildReviewChecklist({ repoRoot, project, humanDecision, textReadable }) {
   const hasFile = async (relativePath) => {
     try {
@@ -56,7 +68,7 @@ export async function buildReviewChecklist({ repoRoot, project, humanDecision, t
     mp4Exists: project.artifacts.renderResult ? await hasFile(project.artifacts.renderResult.mp4Path) : false,
     mp4HasAudioStream: project.artifacts.renderResult ? await mp4HasAudioStream(resolveInside(repoRoot, project.artifacts.renderResult.mp4Path)) : false,
     aspectRatioIsPortrait: project.artifacts.renderResult?.width === 1080 && project.artifacts.renderResult?.height === 1920,
-    durationMatchesPlan: project.scenePlan ? project.artifacts.renderResult?.durationSeconds === project.scenePlan.totalDurationSeconds : true,
+    durationMatchesPlan: durationsMatch(project.artifacts.renderResult?.durationSeconds, getExpectedDurationSeconds(project)),
     textReadable: textReadable === true,
     thumbnailExists: project.artifacts.thumbnail ? await hasFile(project.artifacts.thumbnail.path) : false,
     metadataValid: project.artifacts.metadataPath ? await hasFile(project.artifacts.metadataPath) : false,

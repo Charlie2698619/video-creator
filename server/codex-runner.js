@@ -16,7 +16,43 @@ export function buildCodexArgs(repoRoot, lastMessagePath) {
   return ['exec', '--sandbox', 'workspace-write', '--cd', repoRoot, '--output-last-message', lastMessagePath, '--json', '-']
 }
 
-export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudioPath = null }) {
+function normalizeGenerationSettings(input = {}) {
+  return {
+    durationMode: input.durationMode ?? 'voice_led',
+    visualComplexity: input.visualComplexity ?? 'rich',
+    pacing: input.pacing ?? 'natural',
+    captions: input.captions ?? 'burned_in',
+    audioMix: input.audioMix ?? 'voice_only',
+  }
+}
+
+function spokenWordRange(durationSeconds) {
+  return {
+    min: Math.round(durationSeconds * 3.5),
+    max: Math.round(durationSeconds * 4.1),
+  }
+}
+
+function buildIdeaContext({ ideaSummary, viewerTakeaway }) {
+  const lines = []
+  if (ideaSummary) lines.push(`Idea summary: ${ideaSummary}`)
+  if (viewerTakeaway) lines.push(`Viewer takeaway: ${viewerTakeaway}`)
+  return lines
+}
+
+export function buildStagePrompt({
+  stage,
+  projectTitle,
+  videoRoot,
+  narrationAudioPath = null,
+  targetDurationSeconds = 30,
+  generationSettings = {},
+  ideaSummary = '',
+  viewerTakeaway = '',
+}) {
+  const settings = normalizeGenerationSettings(generationSettings)
+  const wordRange = spokenWordRange(targetDurationSeconds)
+  const ideaContext = buildIdeaContext({ ideaSummary, viewerTakeaway })
   const guardrails = [
     'Complete only this artifact-generation task.',
     'Write the requested file path(s) directly, then stop.',
@@ -26,6 +62,8 @@ export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudi
     return [
       guardrails,
       `Create a short-video storyboard for "${projectTitle}".`,
+      ...ideaContext,
+      `Tone: human, natural, and creator-led; pacing should feel ${settings.pacing}.`,
       `Write ${videoRoot}/storyboard.md with Hook, Beats, Ending, and Tone sections.`,
       'Do not create social posts, platform variants, analytics, calendars, or publishing assets.',
     ].join('\n')
@@ -33,17 +71,22 @@ export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudi
   if (stage === 'scene_plan') {
     return [
       guardrails,
-      `Create a 30-second 9:16 scene plan for "${projectTitle}".`,
-      `Write ${videoRoot}/scene-plan.json as JSON with exactly this top-level shape: {"scenes":[{"sceneNumber":1,"durationSeconds":5,"visualDirection":"...","onScreenText":"...","motionNotes":"...","audioNotes":"...","acceptanceCriteria":["..."]}],"totalDurationSeconds":30}.`,
-      'Audio is optional scene metadata.',
+      `Create a ${targetDurationSeconds}-second 9:16 scene plan for "${projectTitle}".`,
+      ...ideaContext,
+      `Visual complexity: ${settings.visualComplexity}. Use human-oriented framing, natural motion, and concrete creator-style visual details.`,
+      `Audio mix direction: ${settings.audioMix}.`,
+      `Captions: ${settings.captions}. Keep on-screen text short enough to read in a vertical short.`,
+      `Write ${videoRoot}/scene-plan.json as JSON with exactly this top-level shape: {"scenes":[{"sceneNumber":1,"durationSeconds":5,"visualDirection":"...","onScreenText":"...","motionNotes":"...","audioNotes":"...","acceptanceCriteria":["..."]}],"totalDurationSeconds":${targetDurationSeconds}}.`,
+      'Audio notes should support the narration but not replace it.',
     ].join('\n')
   }
   if (stage === 'narration') {
     return [
       guardrails,
-      `Create a 30-second AI narration script for "${projectTitle}".`,
+      `Create an approximately ${targetDurationSeconds}-second AI narration script for "${projectTitle}".`,
+      ...ideaContext,
       `Write ${videoRoot}/audio/narration.txt as a plain text narration script.`,
-      'Keep it to 65-85 spoken words, one voice, no markdown, no scene labels, no music cues, no social publishing copy.',
+      `Keep it to ${wordRange.min}-${wordRange.max} spoken words, one warm human voice, no markdown, no scene labels, no music cues, no social publishing copy.`,
     ].join('\n')
   }
   const audioInstruction = narrationAudioPath
@@ -56,6 +99,7 @@ export function buildStagePrompt({ stage, projectTitle, videoRoot, narrationAudi
   return [
     guardrails,
     `Create HyperFrames source for "${projectTitle}".`,
+    ...ideaContext,
     `Write ${videoRoot}/hyperframes/index.html and ${videoRoot}/hyperframes/source-manifest.json.`,
     'The composition must be 1080x1920 portrait and renderable by HyperFrames.',
     audioInstruction,
@@ -71,7 +115,7 @@ async function artifactExists(repoRoot, artifactPath) {
   }
 }
 
-async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = null) {
+async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = null, targetDurationSeconds = 30) {
   const root = getVideoRoot(repoRoot, videoId)
   await mkdir(root, { recursive: true })
   if (stage === 'storyboard') {
@@ -88,7 +132,7 @@ async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = 
           scenes: [
             {
               sceneNumber: 1,
-              durationSeconds: 30,
+              durationSeconds: targetDurationSeconds,
               visualDirection: 'Test',
               onScreenText: 'Test',
               motionNotes: 'Fade',
@@ -96,7 +140,7 @@ async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = 
               acceptanceCriteria: ['Readable'],
             },
           ],
-          totalDurationSeconds: 30,
+          totalDurationSeconds: targetDurationSeconds,
         },
         null,
         2,
@@ -156,12 +200,32 @@ async function writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath = 
   return `media/videos/${videoId}/hyperframes/source-manifest.json`
 }
 
-export async function runCodexStage({ repoRoot, videoId, stage, projectTitle, narrationAudioPath = null, testMode = false }) {
+export async function runCodexStage({
+  repoRoot,
+  videoId,
+  stage,
+  projectTitle,
+  narrationAudioPath = null,
+  targetDurationSeconds = 30,
+  generationSettings = {},
+  ideaSummary = '',
+  viewerTakeaway = '',
+  testMode = false,
+}) {
   if (!allowedStages.has(stage)) throw new Error('Unsupported Codex stage.')
   const videoRoot = getVideoRoot(repoRoot, videoId)
   await mkdir(videoRoot, { recursive: true })
   const relativeRoot = `media/videos/${videoId}`
-  const prompt = buildStagePrompt({ stage, projectTitle, videoRoot: relativeRoot, narrationAudioPath })
+  const prompt = buildStagePrompt({
+    stage,
+    projectTitle,
+    videoRoot: relativeRoot,
+    narrationAudioPath,
+    targetDurationSeconds,
+    generationSettings,
+    ideaSummary,
+    viewerTakeaway,
+  })
   const promptPath = resolveInside(videoRoot, `codex-${stage}.prompt.txt`)
   const lastMessagePath = resolveInside(videoRoot, `codex-${stage}.last-message.txt`)
   const artifactPath = getStageArtifactPath(videoId, stage)
@@ -169,7 +233,7 @@ export async function runCodexStage({ repoRoot, videoId, stage, projectTitle, na
   await writeFile(promptPath, prompt, 'utf8')
 
   if (testMode) {
-    return { status: 'completed', artifactPath: await writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath), promptPath }
+    return { status: 'completed', artifactPath: await writeTestArtifact(repoRoot, videoId, stage, narrationAudioPath, targetDurationSeconds), promptPath }
   }
 
   let codexError = null

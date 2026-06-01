@@ -17,7 +17,7 @@ export function SourceStage({ project, onCreate, disabled, pendingLabel }: Sourc
         <h2 id="source-stage">HyperFrames Source</h2>
       </div>
       <button className="primary-action" type="button" onClick={onCreate} disabled={disabled || !project?.narration?.audioPath}>
-        Create HyperFrames source with Codex
+        Build video source
       </button>
       <StageProgress label={pendingLabel} />
       {project?.artifacts.sourceBundle ? <StatusBadge label="HyperFrames source ready" tone="ready" /> : <StatusBadge label="Narration required" />}

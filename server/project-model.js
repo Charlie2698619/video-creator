@@ -4,6 +4,7 @@ export function createVideoProject(input, nowIso) {
   const takeaway = String(input.takeaway ?? '').trim()
   const references = Array.isArray(input.references) ? input.references.map((value) => String(value).trim()).filter(Boolean) : []
   const targetDurationSeconds = Number.isInteger(input.targetDurationSeconds) ? input.targetDurationSeconds : 30
+  const generationSettings = normalizeGenerationSettings(input.generationSettings)
 
   if (!title) throw new Error('Working title is required.')
   if (!summary) throw new Error('Idea summary is required.')
@@ -18,7 +19,7 @@ export function createVideoProject(input, nowIso) {
     status: 'idea',
     createdAt: nowIso,
     updatedAt: nowIso,
-    idea: { title, summary, takeaway, references, targetDurationSeconds },
+    idea: { title, summary, takeaway, references, targetDurationSeconds, generationSettings },
     storyboard: null,
     scenePlan: null,
     narration: null,
@@ -31,5 +32,16 @@ export function createVideoProject(input, nowIso) {
     },
     reviewChecklist: null,
     failure: null,
+  }
+}
+
+function normalizeGenerationSettings(input = {}) {
+  const settings = input && typeof input === 'object' ? input : {}
+  return {
+    durationMode: settings.durationMode === 'fixed' ? 'fixed' : 'voice_led',
+    visualComplexity: settings.visualComplexity === 'standard' ? 'standard' : 'rich',
+    pacing: ['calm', 'fast'].includes(settings.pacing) ? settings.pacing : 'natural',
+    captions: settings.captions === 'off' ? 'off' : 'burned_in',
+    audioMix: settings.audioMix === 'soft_music' ? 'soft_music' : 'voice_only',
   }
 }

@@ -8,7 +8,31 @@ export function buildHyperFramesRenderArgs({ sourceDir, outputPath }) {
   return ['--yes', 'hyperframes', 'render', sourceDir, '--output', outputPath, '--resolution', 'portrait', '--fps', '30', '--quality', 'standard', '--strict']
 }
 
-export function buildMuxNarrationArgs({ videoOnlyPath, narrationAudioPath, outputPath }) {
+export function buildMuxNarrationArgs({ videoOnlyPath, narrationAudioPath, outputPath, musicBedPath = null }) {
+  if (musicBedPath) {
+    return [
+      '-y',
+      '-i',
+      videoOnlyPath,
+      '-i',
+      narrationAudioPath,
+      '-i',
+      musicBedPath,
+      '-filter_complex',
+      '[1:a]volume=1[narration];[2:a]volume=0.16[music];[narration][music]amix=inputs=2:duration=longest:dropout_transition=0[audio]',
+      '-map',
+      '0:v:0',
+      '-map',
+      '[audio]',
+      '-c:v',
+      'copy',
+      '-c:a',
+      'aac',
+      '-movflags',
+      '+faststart',
+      outputPath,
+    ]
+  }
   return [
     '-y',
     '-i',
@@ -51,6 +75,16 @@ async function checksum(filePath) {
   return createHash('sha256').update(await readFile(filePath)).digest('hex')
 }
 
+export async function readSourceDurationSeconds(sourceDir) {
+  try {
+    const manifest = JSON.parse(await readFile(path.join(sourceDir, 'source-manifest.json'), 'utf8'))
+    const duration = manifest.visualDurationSeconds ?? manifest.durationSeconds
+    return Number.isFinite(duration) && duration > 0 ? duration : 30
+  } catch {
+    return 30
+  }
+}
+
 async function runProcess(command, args, options = {}) {
   await new Promise((resolve, reject) => {
     const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -82,12 +116,14 @@ async function fileExists(filePath) {
 async function muxNarrationAudio({ root, outputPath, logPath }) {
   const narrationAudioPath = resolveInside(root, 'audio', 'narration.wav')
   if (!(await fileExists(narrationAudioPath))) return
+  const candidateMusicBedPath = resolveInside(root, 'audio', 'music-bed.wav')
+  const musicBedPath = (await fileExists(candidateMusicBedPath)) ? candidateMusicBedPath : null
 
   const videoOnlyPath = outputPath.replace(/\.mp4$/, '.video-only.mp4')
   await rm(videoOnlyPath, { force: true })
   await rename(outputPath, videoOnlyPath)
   try {
-    await runProcess('ffmpeg', buildMuxNarrationArgs({ videoOnlyPath, narrationAudioPath, outputPath }), { logPath })
+    await runProcess('ffmpeg', buildMuxNarrationArgs({ videoOnlyPath, narrationAudioPath, musicBedPath, outputPath }), { logPath })
   } finally {
     await rm(videoOnlyPath, { force: true })
   }
@@ -100,6 +136,7 @@ export async function renderHyperFrames({ repoRoot, videoId, testMode = false })
   await mkdir(rendersDir, { recursive: true })
   const outputPath = await getNextRenderPath(rendersDir)
   const logPath = outputPath.replace(/\.mp4$/, '.log.txt')
+  const durationSeconds = await readSourceDurationSeconds(sourceDir)
 
   if (testMode) {
     const narrationAudioPath = resolveInside(root, 'audio', 'narration.wav')
@@ -116,7 +153,7 @@ export async function renderHyperFrames({ repoRoot, videoId, testMode = false })
           '-f',
           'lavfi',
           '-i',
-          'color=c=black:s=1080x1920:d=30:r=30',
+          `color=c=black:s=1080x1920:d=${durationSeconds}:r=30`,
           '-i',
           narrationAudioPath,
           '-map',
@@ -132,13 +169,13 @@ export async function renderHyperFrames({ repoRoot, videoId, testMode = false })
           '-shortest',
           outputPath,
         ]
-      : ['-y', '-f', 'lavfi', '-i', 'color=c=black:s=1080x1920:d=30:r=30', '-pix_fmt', 'yuv420p', outputPath]
+      : ['-y', '-f', 'lavfi', '-i', `color=c=black:s=1080x1920:d=${durationSeconds}:r=30`, '-pix_fmt', 'yuv420p', outputPath]
     await runProcess('ffmpeg', args, { logPath })
     return {
       mp4Path: path.relative(repoRoot, outputPath),
       width: 1080,
       height: 1920,
-      durationSeconds: 30,
+      durationSeconds,
       fps: 30,
       checksum: await checksum(outputPath),
       logPath: path.relative(repoRoot, logPath),
@@ -153,7 +190,7 @@ export async function renderHyperFrames({ repoRoot, videoId, testMode = false })
     mp4Path: path.relative(repoRoot, outputPath),
     width: 1080,
     height: 1920,
-    durationSeconds: 30,
+    durationSeconds,
     fps: 30,
     checksum: await checksum(outputPath),
     logPath: path.relative(repoRoot, logPath),

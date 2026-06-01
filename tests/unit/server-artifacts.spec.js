@@ -251,3 +251,93 @@ test('buildReviewChecklist records rejected human decisions without approving', 
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('buildReviewChecklist accepts voice-led duration when narration sets the render length', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'review-voice-led-'))
+  const project = completeProject()
+  const voiceLedProject = {
+    ...project,
+    idea: {
+      ...project.idea,
+      generationSettings: {
+        durationMode: 'voice_led',
+        visualComplexity: 'rich',
+        pacing: 'natural',
+        captions: 'burned_in',
+        audioMix: 'voice_only',
+      },
+    },
+    narration: {
+      ...project.narration,
+      durationSeconds: 42,
+    },
+    artifacts: {
+      ...project.artifacts,
+      renderResult: {
+        ...project.artifacts.renderResult,
+        durationSeconds: 42,
+      },
+    },
+  }
+
+  try {
+    await writeDeclaredArtifacts(root, voiceLedProject)
+    await writeMetadata({ repoRoot: root, project: voiceLedProject })
+
+    const { checklist } = await buildReviewChecklist({
+      repoRoot: root,
+      project: voiceLedProject,
+      humanDecision: 'approved',
+      textReadable: true,
+    })
+
+    expect(checklist.durationMatchesPlan).toBe(true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('buildReviewChecklist accepts planned duration when narration is shorter than the scene plan', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'review-short-narration-'))
+  const project = completeProject()
+  const voiceLedProject = {
+    ...project,
+    idea: {
+      ...project.idea,
+      generationSettings: {
+        durationMode: 'voice_led',
+        visualComplexity: 'rich',
+        pacing: 'natural',
+        captions: 'burned_in',
+        audioMix: 'voice_only',
+      },
+    },
+    narration: {
+      ...project.narration,
+      durationSeconds: 18.58,
+    },
+    artifacts: {
+      ...project.artifacts,
+      renderResult: {
+        ...project.artifacts.renderResult,
+        durationSeconds: 30,
+      },
+    },
+  }
+
+  try {
+    await writeDeclaredArtifacts(root, voiceLedProject)
+    await writeMetadata({ repoRoot: root, project: voiceLedProject })
+
+    const { checklist } = await buildReviewChecklist({
+      repoRoot: root,
+      project: voiceLedProject,
+      humanDecision: 'approved',
+      textReadable: true,
+    })
+
+    expect(checklist.durationMatchesPlan).toBe(true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

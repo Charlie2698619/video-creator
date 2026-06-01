@@ -44,6 +44,27 @@ function createSilentWav({ durationSeconds, sampleRate = 44_100 }) {
   return buffer
 }
 
+export async function readWavDurationSeconds(filePath) {
+  const buffer = await readFile(filePath)
+  if (buffer.length < 44 || buffer.subarray(0, 4).toString('ascii') !== 'RIFF' || buffer.subarray(8, 12).toString('ascii') !== 'WAVE') {
+    throw new Error('Narration audio must be a WAV file.')
+  }
+
+  let byteRate = null
+  let dataSize = null
+  let offset = 12
+  while (offset + 8 <= buffer.length) {
+    const chunkId = buffer.subarray(offset, offset + 4).toString('ascii')
+    const chunkSize = buffer.readUInt32LE(offset + 4)
+    if (chunkId === 'fmt ' && chunkSize >= 16) byteRate = buffer.readUInt32LE(offset + 16)
+    if (chunkId === 'data') dataSize = chunkSize
+    offset += 8 + chunkSize + (chunkSize % 2)
+  }
+
+  if (!byteRate || dataSize === null) throw new Error('Narration WAV duration could not be measured.')
+  return Number((dataSize / byteRate).toFixed(2))
+}
+
 async function runTts(scriptPath, outputPath, voice, env) {
   await new Promise((resolve, reject) => {
     const child = spawn('npx', buildTtsArgs(scriptPath, outputPath, voice), { env, stdio: ['ignore', 'ignore', 'pipe'] })
@@ -72,11 +93,12 @@ export async function generateNarrationAudio({ repoRoot, videoId, scriptPath, vo
   } else {
     await runTts(resolvedScriptPath, outputPath, voice, buildTtsEnv(repoRoot))
   }
+  const measuredDurationSeconds = await readWavDurationSeconds(outputPath)
 
   return {
     audioPath: path.relative(repoRoot, outputPath),
     voice,
-    durationSeconds,
+    durationSeconds: measuredDurationSeconds,
     status: 'audio_ready',
   }
 }

@@ -40,10 +40,21 @@ function buildIdeaContext({ ideaSummary, viewerTakeaway }) {
   return lines
 }
 
+function buildStoryboardContext(storyboard) {
+  if (!storyboard) return []
+  const lines = []
+  if (storyboard.hook) lines.push(`Storyboard hook: ${storyboard.hook}`)
+  if (storyboard.beats?.length) lines.push(`Storyboard beats: ${storyboard.beats.join(' | ')}`)
+  if (storyboard.ending) lines.push(`Storyboard ending: ${storyboard.ending}`)
+  if (storyboard.tone) lines.push(`Storyboard tone: ${storyboard.tone}`)
+  return lines
+}
+
 export function buildStagePrompt({
   stage,
   projectTitle,
   videoRoot,
+  storyboard = null,
   narrationAudioPath = null,
   targetDurationSeconds = 30,
   generationSettings = {},
@@ -53,6 +64,7 @@ export function buildStagePrompt({
   const settings = normalizeGenerationSettings(generationSettings)
   const wordRange = spokenWordRange(targetDurationSeconds)
   const ideaContext = buildIdeaContext({ ideaSummary, viewerTakeaway })
+  const storyboardContext = buildStoryboardContext(storyboard)
   const guardrails = [
     'Complete only this artifact-generation task.',
     'Write the requested file path(s) directly, then stop.',
@@ -73,6 +85,7 @@ export function buildStagePrompt({
       guardrails,
       `Create a ${targetDurationSeconds}-second 9:16 scene plan for "${projectTitle}".`,
       ...ideaContext,
+      ...storyboardContext,
       `Visual complexity: ${settings.visualComplexity}. Use human-oriented framing, natural motion, and concrete creator-style visual details.`,
       `Audio mix direction: ${settings.audioMix}.`,
       `Captions: ${settings.captions}. Keep on-screen text short enough to read in a vertical short.`,
@@ -205,6 +218,7 @@ export async function runCodexStage({
   videoId,
   stage,
   projectTitle,
+  storyboard = null,
   narrationAudioPath = null,
   targetDurationSeconds = 30,
   generationSettings = {},
@@ -220,6 +234,7 @@ export async function runCodexStage({
     stage,
     projectTitle,
     videoRoot: relativeRoot,
+    storyboard,
     narrationAudioPath,
     targetDurationSeconds,
     generationSettings,

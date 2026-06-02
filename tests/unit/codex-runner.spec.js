@@ -62,6 +62,24 @@ test('source prompt includes generated narration audio when available', () => {
   expect(prompt).toContain('src="../audio/narration.wav"')
 })
 
+test('scene plan prompt includes storyboard context when available', () => {
+  const prompt = buildStagePrompt({
+    stage: 'scene_plan',
+    projectTitle: 'Prompt test',
+    videoRoot: 'media/videos/video-1',
+    storyboard: {
+      hook: 'X hook',
+      beats: ['Pivot moves left', 'Sort both sides'],
+      ending: 'Sorted list lands in place',
+      tone: 'Crisp',
+    },
+  })
+
+  expect(prompt).toContain('X hook')
+  expect(prompt).toContain('Pivot moves left')
+  expect(prompt).toContain('Sort both sides')
+})
+
 test('test mode writes deterministic stage artifacts', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'codex-runner-'))
 

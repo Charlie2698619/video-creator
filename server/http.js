@@ -9,6 +9,7 @@ import { createProjectStore } from './project-store.js'
 import { buildReviewChecklist, isChecklistApproved } from './review-checklist.js'
 import { normalizeScenePlan } from './scene-plan.js'
 import { resolveHyperFramesSource } from './source-resolver.js'
+import { parseStoryboard } from './storyboard.js'
 import { getRepoRoot, resolveInside } from './paths.js'
 import { createThumbnail } from './thumbnailer.js'
 
@@ -142,6 +143,7 @@ export async function createServer(options = {}) {
           videoId,
           stage,
           projectTitle: project.title,
+          storyboard: stage === 'scene_plan' ? project.storyboard : null,
           narrationAudioPath: project.narration?.audioPath ?? null,
           targetDurationSeconds: project.idea.targetDurationSeconds,
           generationSettings: project.idea.generationSettings ?? {},
@@ -153,7 +155,7 @@ export async function createServer(options = {}) {
         if (stage === 'storyboard') {
           nextProject = {
             ...project,
-            storyboard: { hook: 'Saved in storyboard.md', beats: ['Saved in storyboard.md'], ending: 'Saved in storyboard.md', tone: 'Saved in storyboard.md' },
+            storyboard: parseStoryboard(await readFile(resolveInside(repoRoot, result.artifactPath), 'utf8')),
             status: 'storyboard',
           }
         }

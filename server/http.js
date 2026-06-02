@@ -8,7 +8,7 @@ import { createVideoProject } from './project-model.js'
 import { createProjectStore } from './project-store.js'
 import { buildReviewChecklist, isChecklistApproved } from './review-checklist.js'
 import { normalizeScenePlan } from './scene-plan.js'
-import { buildHyperFramesSource } from './source-builder.js'
+import { resolveHyperFramesSource } from './source-resolver.js'
 import { getRepoRoot, resolveInside } from './paths.js'
 import { createThumbnail } from './thumbnailer.js'
 
@@ -124,7 +124,7 @@ export async function createServer(options = {}) {
         if (stage === 'source') {
           if (!project.scenePlan) throw invalidState('SCENE_PLAN_REQUIRED', 'Scene plan is required before source generation.')
           if (!project.narration?.audioPath) throw invalidState('NARRATION_AUDIO_REQUIRED', 'Narration audio is required before source generation.')
-          const sourceBundle = await buildHyperFramesSource({ repoRoot, project })
+          const sourceBundle = await resolveHyperFramesSource({ repoRoot, project })
           const nextProject = {
             ...project,
             artifacts: { ...project.artifacts, sourceBundle },

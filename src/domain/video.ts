@@ -79,6 +79,7 @@ export type SourceBundle = {
   sourceFolder: string
   entryFile: string
   manifestPath: string
+  origin: 'codex' | 'fallback'
   status: 'source_ready' | 'source_failed'
 }
 

@@ -109,6 +109,28 @@ test('loads one project through the loopback API', async () => {
   }
 })
 
+test('health reports dependency tool status', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'video-api-health-'))
+  const server = await createServer({ repoRoot: root, host: '127.0.0.1', port: 0 })
+
+  try {
+    const address = server.address()
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/health`)
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.ok).toBe(true)
+    expect(Object.keys(body.tools)).toEqual(['codex', 'ffmpeg', 'ffprobe', 'ttsVenv'])
+    for (const status of Object.values(body.tools)) {
+      expect(typeof status.present).toBe('boolean')
+      expect(typeof status.detail).toBe('string')
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('returns structured API errors', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'video-api-errors-'))
   const server = await createServer({ repoRoot: root, host: '127.0.0.1', port: 0 })

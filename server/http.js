@@ -6,6 +6,7 @@ import { writeMetadata } from './metadata.js'
 import { generateNarrationAudio } from './narration.js'
 import { createVideoProject } from './project-model.js'
 import { createProjectStore } from './project-store.js'
+import { checkTools } from './doctor.js'
 import { buildReviewChecklist, isChecklistApproved } from './review-checklist.js'
 import { normalizeScenePlan } from './scene-plan.js'
 import { resolveHyperFramesSource } from './source-resolver.js'
@@ -107,7 +108,7 @@ export async function createServer(options = {}) {
       const url = new URL(request.url ?? '/', `http://${host}:${port}`)
 
       if (request.method === 'OPTIONS') return sendJson(response, 204, {})
-      if (request.method === 'GET' && url.pathname === '/api/health') return sendJson(response, 200, { ok: true })
+      if (request.method === 'GET' && url.pathname === '/api/health') return sendJson(response, 200, { ok: true, tools: await checkTools({ repoRoot }) })
       if (request.method === 'GET' && url.pathname === '/api/projects') return sendJson(response, 200, { projects: await store.listProjects() })
       if (request.method === 'GET' && /^\/api\/projects\/[^/]+$/.test(url.pathname)) {
         const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)$/)

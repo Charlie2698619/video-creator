@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "server": "node server/index.js",
     "local": "node server/index.js",
+    "doctor": "node server/doctor.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "npm run test:unit && npm run test:e2e",

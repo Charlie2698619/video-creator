@@ -50,6 +50,44 @@ function normalizeError(error) {
   return new ApiError(400, 'REQUEST_FAILED', 'request_failed', error instanceof Error ? error.message : 'Request failed.')
 }
 
+const nonPersistentStageErrorCategories = new Set(['invalid_state', 'validation', 'not_found'])
+
+const failureStageByCodexStage = {
+  storyboard: 'storyboard',
+  scene_plan: 'scene_plan',
+  narration: 'narration_script',
+  source: 'source_ready',
+}
+
+function shouldPersistStageFailure(error) {
+  return !(error instanceof ApiError && nonPersistentStageErrorCategories.has(error.category))
+}
+
+async function markStageFailedBestEffort(store, project, codexStage, error) {
+  if (!shouldPersistStageFailure(error)) return null
+  try {
+    return await markProjectFailed(store, project, failureStageByCodexStage[codexStage], normalizeError(error).message)
+  } catch (failureError) {
+    console.error('Failed to persist project failure state.', {
+      videoId: project.id,
+      stage: failureStageByCodexStage[codexStage],
+      error: failureError instanceof Error ? failureError.message : String(failureError),
+    })
+    return null
+  }
+}
+
+export async function markProjectFailed(store, project, stage, message) {
+  const failedProject = {
+    ...project,
+    status: 'failed',
+    failure: { stage, message },
+    updatedAt: new Date().toISOString(),
+  }
+  await store.saveProject(failedProject)
+  return failedProject
+}
+
 function sendJson(response, status, body) {
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -123,66 +161,71 @@ export async function createServer(options = {}) {
       if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/codex\/(storyboard|scene_plan|narration|source)$/.test(url.pathname)) {
         const [, videoId, stage] = url.pathname.match(/^\/api\/projects\/([^/]+)\/codex\/(storyboard|scene_plan|narration|source)$/)
         const project = await loadProjectOr404(store, videoId)
-        if (stage === 'source') {
-          if (!project.scenePlan) throw invalidState('SCENE_PLAN_REQUIRED', 'Scene plan is required before source generation.')
-          if (!project.narration?.audioPath) throw invalidState('NARRATION_AUDIO_REQUIRED', 'Narration audio is required before source generation.')
-          const sourceBundle = await resolveHyperFramesSource({ repoRoot, project })
-          const nextProject = {
-            ...project,
-            artifacts: { ...project.artifacts, sourceBundle },
-            status: 'source_ready',
-            updatedAt: new Date().toISOString(),
+        try {
+          if (stage === 'source') {
+            if (!project.scenePlan) throw invalidState('SCENE_PLAN_REQUIRED', 'Scene plan is required before source generation.')
+            if (!project.narration?.audioPath) throw invalidState('NARRATION_AUDIO_REQUIRED', 'Narration audio is required before source generation.')
+            const sourceBundle = await resolveHyperFramesSource({ repoRoot, project })
+            const nextProject = {
+              ...project,
+              artifacts: { ...project.artifacts, sourceBundle },
+              status: 'source_ready',
+              updatedAt: new Date().toISOString(),
+            }
+            await store.saveProject(nextProject)
+            return sendJson(response, 200, {
+              result: { status: 'completed', artifactPath: sourceBundle.manifestPath, promptPath: null },
+              project: nextProject,
+            })
           }
-          await store.saveProject(nextProject)
-          return sendJson(response, 200, {
-            result: { status: 'completed', artifactPath: sourceBundle.manifestPath, promptPath: null },
-            project: nextProject,
+          const result = await runCodexStage({
+            repoRoot,
+            videoId,
+            stage,
+            projectTitle: project.title,
+            storyboard: stage === 'scene_plan' ? project.storyboard : null,
+            narrationAudioPath: project.narration?.audioPath ?? null,
+            targetDurationSeconds: project.idea.targetDurationSeconds,
+            generationSettings: project.idea.generationSettings ?? {},
+            ideaSummary: project.idea.summary,
+            viewerTakeaway: project.idea.takeaway,
+            testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
           })
-        }
-        const result = await runCodexStage({
-          repoRoot,
-          videoId,
-          stage,
-          projectTitle: project.title,
-          storyboard: stage === 'scene_plan' ? project.storyboard : null,
-          narrationAudioPath: project.narration?.audioPath ?? null,
-          targetDurationSeconds: project.idea.targetDurationSeconds,
-          generationSettings: project.idea.generationSettings ?? {},
-          ideaSummary: project.idea.summary,
-          viewerTakeaway: project.idea.takeaway,
-          testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
-        })
-        let nextProject = project
-        if (stage === 'storyboard') {
-          nextProject = {
-            ...project,
-            storyboard: parseStoryboard(await readFile(resolveInside(repoRoot, result.artifactPath), 'utf8')),
-            status: 'storyboard',
+          let nextProject = project
+          if (stage === 'storyboard') {
+            nextProject = {
+              ...project,
+              storyboard: parseStoryboard(await readFile(resolveInside(repoRoot, result.artifactPath), 'utf8')),
+              status: 'storyboard',
+            }
           }
-        }
-        if (stage === 'scene_plan') {
-          nextProject = {
-            ...project,
-            scenePlan: normalizeScenePlan(JSON.parse(await readFile(resolveInside(repoRoot, `media/videos/${videoId}/scene-plan.json`), 'utf8'))),
-            status: 'scene_plan',
+          if (stage === 'scene_plan') {
+            nextProject = {
+              ...project,
+              scenePlan: normalizeScenePlan(JSON.parse(await readFile(resolveInside(repoRoot, `media/videos/${videoId}/scene-plan.json`), 'utf8'))),
+              status: 'scene_plan',
+            }
           }
-        }
-        if (stage === 'narration') {
-          nextProject = {
-            ...project,
-            narration: {
-              scriptPath: result.artifactPath,
-              audioPath: null,
-              voice: 'af_nova',
-              durationSeconds: project.scenePlan?.totalDurationSeconds ?? project.idea.targetDurationSeconds,
-              status: 'script_ready',
-            },
-            status: 'narration_script',
+          if (stage === 'narration') {
+            nextProject = {
+              ...project,
+              narration: {
+                scriptPath: result.artifactPath,
+                audioPath: null,
+                voice: 'af_nova',
+                durationSeconds: project.scenePlan?.totalDurationSeconds ?? project.idea.targetDurationSeconds,
+                status: 'script_ready',
+              },
+              status: 'narration_script',
+            }
           }
+          nextProject = { ...nextProject, updatedAt: new Date().toISOString() }
+          await store.saveProject(nextProject)
+          return sendJson(response, 200, { result, project: nextProject })
+        } catch (error) {
+          await markStageFailedBestEffort(store, project, stage, error)
+          throw error
         }
-        nextProject = { ...nextProject, updatedAt: new Date().toISOString() }
-        await store.saveProject(nextProject)
-        return sendJson(response, 200, { result, project: nextProject })
       }
       if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/narration\/audio$/.test(url.pathname)) {
         const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/narration\/audio$/)

@@ -1,164 +1,24 @@
-import { z } from 'zod'
+export {
+  createVideoProject,
+  defaultGenerationSettings,
+  generationSettingsSchema,
+  ideaInputSchema,
+  projectInputSchema,
+  videoStatuses,
+} from '../../server/project-schema.mjs'
 
-export const videoStatuses = [
-  'idea',
-  'storyboard',
-  'scene_plan',
-  'narration_script',
-  'narration_ready',
-  'source_ready',
-  'rendered',
-  'library_ready',
-  'needs_review',
-  'reviewed',
-  'failed',
-] as const
-
-export type VideoStatus = (typeof videoStatuses)[number]
-
-export const defaultGenerationSettings = {
-  durationMode: 'voice_led',
-  visualComplexity: 'rich',
-  pacing: 'natural',
-  captions: 'burned_in',
-  audioMix: 'voice_only',
-} as const
-
-export const generationSettingsSchema = z.object({
-  durationMode: z.enum(['voice_led', 'fixed']).default('voice_led'),
-  visualComplexity: z.enum(['standard', 'rich']).default('rich'),
-  pacing: z.enum(['calm', 'natural', 'fast']).default('natural'),
-  captions: z.enum(['burned_in', 'off']).default('burned_in'),
-  audioMix: z.enum(['voice_only', 'soft_music']).default('voice_only'),
-})
-
-export const ideaInputSchema = z.object({
-  title: z.string().trim().min(1, 'Working title is required.'),
-  summary: z.string().trim().min(1, 'Idea summary is required.'),
-  takeaway: z.string().trim().min(1, 'Viewer takeaway is required.'),
-  references: z.array(z.string().trim()).default([]),
-  targetDurationSeconds: z.number().int().min(5).max(120).default(30),
-  generationSettings: generationSettingsSchema.default(defaultGenerationSettings),
-})
-
-export type GenerationSettings = z.output<typeof generationSettingsSchema>
-export type IdeaInput = z.input<typeof ideaInputSchema>
-export type Idea = z.output<typeof ideaInputSchema>
-
-export type Storyboard = {
-  hook: string
-  beats: string[]
-  ending: string
-  tone: string
-}
-
-export type ScenePlanScene = {
-  sceneNumber: number
-  durationSeconds: number
-  visualDirection: string
-  onScreenText: string
-  motionNotes: string
-  audioNotes: string
-  acceptanceCriteria: string[]
-}
-
-export type ScenePlan = {
-  scenes: ScenePlanScene[]
-  totalDurationSeconds: number
-}
-
-export type Narration = {
-  scriptPath: string
-  audioPath: string | null
-  voice: string
-  durationSeconds: number
-  status: 'script_ready' | 'audio_ready'
-}
-
-export type SourceBundle = {
-  sourceFolder: string
-  entryFile: string
-  manifestPath: string
-  origin: 'codex' | 'fallback'
-  status: 'source_ready' | 'source_failed'
-}
-
-export type RenderResult = {
-  mp4Path: string
-  width: number
-  height: number
-  durationSeconds: number
-  fps: number
-  checksum: string
-  logPath: string
-  status: 'rendered' | 'failed'
-}
-
-export type Thumbnail = {
-  path: string
-  width: number
-  height: number
-  checksum: string
-}
-
-export type ReviewChecklist = {
-  mp4Exists: boolean
-  mp4HasAudioStream: boolean
-  aspectRatioIsPortrait: boolean
-  durationMatchesPlan: boolean
-  textReadable: boolean
-  thumbnailExists: boolean
-  metadataValid: boolean
-  narrationAudioExists: boolean
-  sourcePreserved: boolean
-  noFailedArtifactMarkedComplete: boolean
-  humanDecision: 'pending' | 'approved' | 'rejected'
-  reviewedAt: string | null
-}
-
-export type VideoProject = {
-  id: string
-  title: string
-  status: VideoStatus
-  createdAt: string
-  updatedAt: string
-  idea: Idea
-  storyboard: Storyboard | null
-  scenePlan: ScenePlan | null
-  narration: Narration | null
-  artifacts: {
-    sourceBundle: SourceBundle | null
-    renderResult: RenderResult | null
-    thumbnail: Thumbnail | null
-    metadataPath: string | null
-    reviewChecklistPath: string | null
-  }
-  reviewChecklist: ReviewChecklist | null
-  failure: { stage: VideoStatus; message: string } | null
-}
-
-export function createVideoProject(input: IdeaInput, nowIso: string): VideoProject {
-  const idea = ideaInputSchema.parse(input)
-  const id = `video-${nowIso.replaceAll(/[^0-9]/g, '').slice(0, 14)}`
-
-  return {
-    id,
-    title: idea.title,
-    status: 'idea',
-    createdAt: nowIso,
-    updatedAt: nowIso,
-    idea,
-    storyboard: null,
-    scenePlan: null,
-    narration: null,
-    artifacts: {
-      sourceBundle: null,
-      renderResult: null,
-      thumbnail: null,
-      metadataPath: null,
-      reviewChecklistPath: null,
-    },
-    reviewChecklist: null,
-    failure: null,
-  }
-}
+export type {
+  GenerationSettings,
+  Idea,
+  IdeaInput,
+  Narration,
+  RenderResult,
+  ReviewChecklist,
+  ScenePlan,
+  ScenePlanScene,
+  SourceBundle,
+  Storyboard,
+  Thumbnail,
+  VideoProject,
+  VideoStatus,
+} from '../../server/project-schema.mjs'

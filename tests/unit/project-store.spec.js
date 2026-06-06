@@ -1,32 +1,75 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { createServer } from '../../server/http.js'
 import { assertSafeVideoId, createProjectStore } from '../../server/project-store.js'
 
+function storedProject(id = 'video-20260517000000') {
+  return {
+    id,
+    title: 'Stored project',
+    status: 'idea',
+    createdAt: '2026-05-17T00:00:00.000Z',
+    updatedAt: '2026-05-17T00:00:00.000Z',
+    idea: { title: 'Stored project', summary: 'A', takeaway: 'B', references: [], targetDurationSeconds: 30 },
+    storyboard: null,
+    scenePlan: null,
+    narration: null,
+    artifacts: { sourceBundle: null, renderResult: null, thumbnail: null, metadataPath: null, reviewChecklistPath: null },
+    reviewChecklist: null,
+    failure: null,
+  }
+}
+
 test('saves and loads a project record under media/videos', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'video-store-'))
   const store = createProjectStore(root)
 
   try {
-    await store.saveProject({
-      id: 'video-20260517000000',
-      title: 'Stored project',
-      status: 'idea',
-      createdAt: '2026-05-17T00:00:00.000Z',
-      updatedAt: '2026-05-17T00:00:00.000Z',
-      idea: { title: 'Stored project', summary: 'A', takeaway: 'B', references: [], targetDurationSeconds: 30 },
-      storyboard: null,
-      scenePlan: null,
-      narration: null,
-      artifacts: { sourceBundle: null, renderResult: null, thumbnail: null, metadataPath: null, reviewChecklistPath: null },
-      reviewChecklist: null,
-      failure: null,
-    })
+    await store.saveProject(storedProject())
 
     const loaded = await store.loadProject('video-20260517000000')
+    const projectDirEntries = await readdir(path.join(root, 'media/videos/video-20260517000000'))
+    const ideaJson = JSON.parse(await readFile(path.join(root, 'media/videos/video-20260517000000/idea.json'), 'utf8'))
+
     expect(loaded.title).toBe('Stored project')
+    expect(ideaJson.id).toBe('video-20260517000000')
+    expect(projectDirEntries.filter((entry) => entry.endsWith('.tmp'))).toEqual([])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('saveProject replaces idea.json by renaming a temporary file', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'video-store-atomic-'))
+  const writes = []
+  const renames = []
+  const store = createProjectStore(root, {
+    mkdir: async () => {},
+    writeFile: async (filePath, data, encoding) => {
+      writes.push({ filePath, data, encoding })
+    },
+    rename: async (from, to) => {
+      renames.push({ from, to })
+    },
+    readFile: async () => {
+      throw new Error('readFile is not used by saveProject.')
+    },
+    readdir: async () => [],
+  })
+
+  try {
+    const project = storedProject('video-20260517010101')
+
+    await store.saveProject(project)
+
+    const finalPath = path.join(root, 'media/videos/video-20260517010101/idea.json')
+    expect(writes).toHaveLength(1)
+    expect(writes[0].encoding).toBe('utf8')
+    expect(path.basename(writes[0].filePath)).toMatch(/^idea\.json\..+\.tmp$/)
+    expect(JSON.parse(writes[0].data).id).toBe(project.id)
+    expect(renames).toEqual([{ from: writes[0].filePath, to: finalPath }])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

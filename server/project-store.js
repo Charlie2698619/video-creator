@@ -1,10 +1,25 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import {
+  mkdir as fsMkdir,
+  readFile as fsReadFile,
+  readdir as fsReaddir,
+  rename as fsRename,
+  unlink as fsUnlink,
+  writeFile as fsWriteFile,
+} from 'node:fs/promises'
 import path from 'node:path'
 import { assertSafeVideoId, getVideoRoot, resolveInside } from './paths.js'
 
 export { assertSafeVideoId }
 
-export function createProjectStore(repoRoot) {
+export function createProjectStore(repoRoot, fileSystem = {}) {
+  const mkdir = fileSystem.mkdir ?? fsMkdir
+  const readFile = fileSystem.readFile ?? fsReadFile
+  const readdir = fileSystem.readdir ?? fsReaddir
+  const rename = fileSystem.rename ?? fsRename
+  const unlink = fileSystem.unlink ?? fsUnlink
+  const writeFile = fileSystem.writeFile ?? fsWriteFile
+
   async function ensureProjectDirs(videoId) {
     const root = getVideoRoot(repoRoot, videoId)
     await mkdir(resolveInside(root, 'hyperframes'), { recursive: true })
@@ -17,7 +32,15 @@ export function createProjectStore(repoRoot) {
     async saveProject(project) {
       assertSafeVideoId(project.id)
       const root = await ensureProjectDirs(project.id)
-      await writeFile(path.join(root, 'idea.json'), `${JSON.stringify(project, null, 2)}\n`, 'utf8')
+      const ideaPath = path.join(root, 'idea.json')
+      const tempPath = path.join(root, `idea.json.${process.pid}.${randomUUID()}.tmp`)
+      try {
+        await writeFile(tempPath, `${JSON.stringify(project, null, 2)}\n`, 'utf8')
+        await rename(tempPath, ideaPath)
+      } catch (error) {
+        await unlink(tempPath).catch(() => {})
+        throw error
+      }
       return project
     },
 

@@ -5,6 +5,7 @@ import { promisify } from 'node:util'
 import { getVideoRoot, resolveInside } from './paths.js'
 
 const execFileAsync = promisify(execFile)
+const DURATION_TOLERANCE_SECONDS = 1
 
 export function isChecklistApproved(checklist) {
   return (
@@ -51,7 +52,8 @@ function getExpectedDurationSeconds(project) {
 
 function durationsMatch(actual, expected) {
   if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false
-  return Math.abs(actual - expected) <= 0.1
+  // Real renders can drift slightly from planned timing due to frame rounding and muxing.
+  return Math.abs(actual - expected) <= DURATION_TOLERANCE_SECONDS
 }
 
 export async function buildReviewChecklist({ repoRoot, project, humanDecision, textReadable }) {

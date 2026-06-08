@@ -29,6 +29,7 @@ export default defineConfig({
   workers: process.env.VIDEO_CREATOR_E2E === '1' ? 1 : undefined,
   projects: [
     { name: 'unit', testMatch: /tests\/unit\/.*\.(spec|test)\.(ts|js)/ },
+    { name: 'smoke', testMatch: /tests\/smoke\/.*\.(spec|test)\.js/ },
     {
       name: 'chromium',
       testMatch: /tests\/e2e\/.*\.(spec|test)\.ts/,

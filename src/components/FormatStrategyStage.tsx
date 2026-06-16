@@ -37,6 +37,7 @@ export function FormatStrategyStage({ project, disabled, pendingLabel, onSave, o
   const [visualSystem, setVisualSystem] = useState('')
   const [syncPriority, setSyncPriority] = useState<SyncPriority>('medium')
   const [riskFlags, setRiskFlags] = useState<RiskFlags>(defaultRiskFlags)
+  const inputDisabled = disabled || !project
 
   useEffect(() => {
     const next = strategyFromProject(project)
@@ -65,56 +66,56 @@ export function FormatStrategyStage({ project, disabled, pendingLabel, onSave, o
       <form className="stage-form" onSubmit={handleSubmit}>
         <div className="brief-grid">
           <div className="brief-fields">
-            <label className="form-row">
-              <span>Format type</span>
-              <select value={formatType} onChange={(event) => setFormatType(event.target.value as FormatType)}>
+            <div className="form-row">
+              <label htmlFor="format-type">Format type</label>
+              <select id="format-type" value={formatType} onChange={(event) => setFormatType(event.target.value as FormatType)} disabled={inputDisabled}>
                 <option value="programmatic_explainer">Programmatic explainer</option>
                 <option value="multi_image_story">Multi-image story</option>
               </select>
               <p className="format-option-note">{getFormatHint(formatType)}</p>
-            </label>
-            <label className="form-row">
-              <span>Content moat</span>
-              <textarea value={contentMoat} onChange={(event) => setContentMoat(event.target.value)} />
+            </div>
+            <div className="form-row">
+              <label htmlFor="content-moat">Content moat</label>
+              <textarea id="content-moat" value={contentMoat} onChange={(event) => setContentMoat(event.target.value)} disabled={inputDisabled} />
               <FieldCoach {...promptCoach.contentMoat} />
-            </label>
-            <label className="form-row">
-              <span>Visual system</span>
-              <textarea value={visualSystem} onChange={(event) => setVisualSystem(event.target.value)} />
+            </div>
+            <div className="form-row">
+              <label htmlFor="visual-system">Visual system</label>
+              <textarea id="visual-system" value={visualSystem} onChange={(event) => setVisualSystem(event.target.value)} disabled={inputDisabled} />
               <FieldCoach {...promptCoach.visualSystem} />
-            </label>
+            </div>
           </div>
           <fieldset className="tuning-panel">
             <legend>Risk and sync</legend>
-            <label className="form-row">
-              <span>Sync priority</span>
-              <select value={syncPriority} onChange={(event) => setSyncPriority(event.target.value as SyncPriority)}>
+            <div className="form-row">
+              <label htmlFor="sync-priority">Sync priority</label>
+              <select id="sync-priority" value={syncPriority} onChange={(event) => setSyncPriority(event.target.value as SyncPriority)} disabled={inputDisabled}>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
-            </label>
+            </div>
             <div className="risk-grid">
               <label className="checkbox-row">
-                <input type="checkbox" checked={riskFlags.publicFigure} onChange={(event) => setRiskFlag('publicFigure', event.target.checked)} />
+                <input type="checkbox" checked={riskFlags.publicFigure} onChange={(event) => setRiskFlag('publicFigure', event.target.checked)} disabled={inputDisabled} />
                 Public figure
               </label>
               <label className="checkbox-row">
-                <input type="checkbox" checked={riskFlags.syntheticVoice} onChange={(event) => setRiskFlag('syntheticVoice', event.target.checked)} />
+                <input type="checkbox" checked={riskFlags.syntheticVoice} onChange={(event) => setRiskFlag('syntheticVoice', event.target.checked)} disabled={inputDisabled} />
                 Synthetic voice
               </label>
               <label className="checkbox-row">
-                <input type="checkbox" checked={riskFlags.aiMusic} onChange={(event) => setRiskFlag('aiMusic', event.target.checked)} />
+                <input type="checkbox" checked={riskFlags.aiMusic} onChange={(event) => setRiskFlag('aiMusic', event.target.checked)} disabled={inputDisabled} />
                 AI music
               </label>
               <label className="checkbox-row">
-                <input type="checkbox" checked={riskFlags.realisticSyntheticScene} onChange={(event) => setRiskFlag('realisticSyntheticScene', event.target.checked)} />
+                <input type="checkbox" checked={riskFlags.realisticSyntheticScene} onChange={(event) => setRiskFlag('realisticSyntheticScene', event.target.checked)} disabled={inputDisabled} />
                 Realistic synthetic scene
               </label>
             </div>
           </fieldset>
         </div>
         <div className="action-row">
-          <button className="primary-action" type="submit" disabled={disabled || !project}>
+          <button className="primary-action" type="submit" disabled={inputDisabled}>
             Save strategy
           </button>
           <button className="secondary-action" type="button" onClick={onGenerateDraft} disabled={disabled || !project?.formatStrategy}>

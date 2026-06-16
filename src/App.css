@@ -25,7 +25,7 @@
 .workflow-rail {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   margin: 18px 0;
 }
 
@@ -125,6 +125,7 @@
   text-align: left;
 }
 
+.form-row label,
 .form-row span {
   color: #39445a;
   font-weight: 700;
@@ -327,6 +328,12 @@ button:disabled {
 }
 
 .blocker-list {
+  color: #8a4b0f;
+  margin: 16px 0 0;
+  padding-left: 18px;
+}
+
+.policy-warning-list {
   color: #8a4b0f;
   margin: 16px 0 0;
   padding-left: 18px;

@@ -12,6 +12,20 @@ test('loads the newest saved project after a browser refresh', async ({ page, re
     },
   })
   const { project } = (await created.json()) as { project: { id: string } }
+  await request.post(`http://127.0.0.1:8787/api/projects/${project.id}/format-strategy`, {
+    data: {
+      formatType: 'programmatic_explainer',
+      contentMoat: 'Original recovery-flow verification.',
+      visualSystem: 'Checklist cards and artifact rows.',
+      syncPriority: 'medium',
+      riskFlags: {
+        publicFigure: false,
+        syntheticVoice: false,
+        aiMusic: false,
+        realisticSyntheticScene: false,
+      },
+    },
+  })
   await request.post(`http://127.0.0.1:8787/api/projects/${project.id}/codex/storyboard`)
   await request.post(`http://127.0.0.1:8787/api/projects/${project.id}/codex/scene_plan`)
   await request.post(`http://127.0.0.1:8787/api/projects/${project.id}/codex/narration`)

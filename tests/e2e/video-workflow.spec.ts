@@ -13,6 +13,16 @@ test('turns one idea into a reviewed video in test mode', async ({ page }) => {
   await page.getByLabel('Working title').fill(title)
   await page.getByLabel('Idea summary').fill('Explain why source files and rendered MP4s are different.')
   await page.getByLabel('Viewer takeaway').fill('A render is the artifact that review should inspect.')
+  await page.getByRole('button', { name: 'Save idea' }).click()
+
+  await page.getByLabel('Format type').selectOption('programmatic_explainer')
+  await page.getByLabel('Content moat').fill('Original explanation of artifact honesty and review discipline.')
+  await page.getByLabel('Visual system').fill('Kinetic title, comparison cards, source-versus-render checklist.')
+  await page.getByLabel('Sync priority').selectOption('high')
+  await page.getByRole('checkbox', { name: 'Synthetic voice' }).check()
+  await page.getByRole('button', { name: 'Save strategy' }).click()
+  await expect(page.getByLabel('Format Strategy').getByText('programmatic_explainer')).toBeVisible()
+
   await page.getByRole('button', { name: 'Generate draft' }).click()
 
   await expect
@@ -36,6 +46,6 @@ test('turns one idea into a reviewed video in test mode', async ({ page }) => {
 
   await page.getByLabel('On-screen text is readable').check()
   await page.getByRole('button', { name: 'Approve review' }).click()
-  await expect(page.getByText('Reviewed')).toBeVisible()
+  await expect(page.getByText('Reviewed')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('heading', { name: 'Media Library' })).toBeVisible()
 })

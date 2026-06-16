@@ -7,7 +7,6 @@ import { StageProgress } from './StageProgress'
 
 type IdeaStageProps = {
   onSave: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds: number; generationSettings: GenerationSettings }) => Promise<void>
-  onGenerateDraft?: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds: number; generationSettings: GenerationSettings }) => Promise<void>
   disabled: boolean
   pendingLabel: string | null
 }
@@ -48,21 +47,21 @@ export function IdeaStage({ onSave, disabled, pendingLabel }: IdeaStageProps) {
       <form className="stage-form" onSubmit={handleSubmit}>
         <div className="brief-grid">
           <div className="brief-fields">
-            <label className="form-row">
-              <span>Working title</span>
-              <input value={title} onChange={(event) => setTitle(event.target.value)} />
+            <div className="form-row">
+              <label htmlFor="idea-title">Working title</label>
+              <input id="idea-title" value={title} onChange={(event) => setTitle(event.target.value)} />
               <FieldCoach {...promptCoach.idea} />
-            </label>
-            <label className="form-row">
-              <span>Idea summary</span>
-              <textarea value={summary} onChange={(event) => setSummary(event.target.value)} />
+            </div>
+            <div className="form-row">
+              <label htmlFor="idea-summary">Idea summary</label>
+              <textarea id="idea-summary" value={summary} onChange={(event) => setSummary(event.target.value)} />
               <FieldCoach {...promptCoach.idea} />
-            </label>
-            <label className="form-row">
-              <span>Viewer takeaway</span>
-              <textarea value={takeaway} onChange={(event) => setTakeaway(event.target.value)} />
+            </div>
+            <div className="form-row">
+              <label htmlFor="viewer-takeaway">Viewer takeaway</label>
+              <textarea id="viewer-takeaway" value={takeaway} onChange={(event) => setTakeaway(event.target.value)} />
               <FieldCoach {...promptCoach.viewerTakeaway} />
-            </label>
+            </div>
           </div>
           <fieldset className="tuning-panel">
             <legend>Generation tuning</legend>

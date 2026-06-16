@@ -27,6 +27,10 @@ export function ArtifactInspector({ project, error, pending }: ArtifactInspector
               <dd>{project.id}</dd>
             </div>
             <div>
+              <dt>Format</dt>
+              <dd>{project.formatStrategy?.formatType ?? 'Not selected'}</dd>
+            </div>
+            <div>
               <dt>Source</dt>
               <dd>{project.artifacts.sourceBundle?.manifestPath ?? paths.hyperframes}</dd>
             </div>
@@ -55,6 +59,13 @@ export function ArtifactInspector({ project, error, pending }: ArtifactInspector
             <ul className="blocker-list">
               {blockers.map((blocker) => (
                 <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+          ) : null}
+          {project.formatStrategy?.policyNotes.length ? (
+            <ul className="policy-warning-list" aria-label="Policy warnings">
+              {project.formatStrategy.policyNotes.map((warning) => (
+                <li key={warning}>{warning}</li>
               ))}
             </ul>
           ) : null}

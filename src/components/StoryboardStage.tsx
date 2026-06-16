@@ -16,11 +16,11 @@ export function StoryboardStage({ project, onCreate, disabled, pendingLabel }: S
         <p>Stage 2</p>
         <h2 id="storyboard-stage">Storyboard</h2>
       </div>
-      <button className="primary-action" type="button" onClick={onCreate} disabled={disabled || !project}>
+      <button className="primary-action" type="button" onClick={onCreate} disabled={disabled || !project?.formatStrategy}>
         Create storyboard with Codex
       </button>
       <StageProgress label={pendingLabel} />
-      {project?.storyboard ? <StatusBadge label="Storyboard ready" tone="ready" /> : <StatusBadge label="Waiting for idea" />}
+      {project?.storyboard ? <StatusBadge label="Storyboard ready" tone="ready" /> : <StatusBadge label={project ? 'Strategy required' : 'Waiting for idea'} />}
     </section>
   )
 }

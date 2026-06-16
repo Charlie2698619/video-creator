@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { videoApi } from '../api/videoApi'
-import type { GenerationSettings, VideoProject } from '../domain/video'
+import type { FormatStrategyInput, VideoProject } from '../domain/video'
 import { ArtifactInspector } from './ArtifactInspector'
+import { FormatStrategyStage } from './FormatStrategyStage'
 import { IdeaStage } from './IdeaStage'
 import { MediaLibrary } from './MediaLibrary'
 import { MetadataStage } from './MetadataStage'
@@ -27,17 +28,9 @@ type PendingAction = {
   label: string
 }
 
-type BriefInput = {
-  title: string
-  summary: string
-  takeaway: string
-  references: string[]
-  targetDurationSeconds: number
-  generationSettings: GenerationSettings
-}
-
 const workflowStages = [
   { key: 'idea', label: 'Idea' },
+  { key: 'format_strategy', label: 'Format Strategy' },
   { key: 'storyboard', label: 'Storyboard' },
   { key: 'scene_plan', label: 'Scene Plan' },
   { key: 'narration', label: 'Narration' },
@@ -63,12 +56,16 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
     }
   }
 
-  async function runDraft(input: BriefInput) {
-    setPending({ stage: 'draft', label: 'Saving brief...' })
+  async function runFormatStrategy(input: FormatStrategyInput) {
+    if (!activeProject) return
+    await runAction('format_strategy', 'Saving format strategy...', async () => (await videoApi.saveFormatStrategy(activeProject.id, input)).project)
+  }
+
+  async function runDraftFromProject(project: VideoProject) {
+    setPending({ stage: 'format_strategy', label: 'Starting draft...' })
     onError(null)
     try {
-      let project = (await videoApi.createProject(input)).project
-      onProjectChanged(project)
+      let currentProject = project
       const steps: Array<{ label: string; action: (videoId: string) => Promise<VideoProject> }> = [
         { label: 'Creating storyboard...', action: async (videoId) => (await videoApi.runCodexStage(videoId, 'storyboard')).project },
         { label: 'Creating scene plan...', action: async (videoId) => (await videoApi.runCodexStage(videoId, 'scene_plan')).project },
@@ -81,9 +78,9 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
       ]
 
       for (const step of steps) {
-        setPending({ stage: 'draft', label: step.label })
-        project = await step.action(project.id)
-        onProjectChanged(project)
+        setPending({ stage: 'format_strategy', label: step.label })
+        currentProject = await step.action(currentProject.id)
+        onProjectChanged(currentProject)
       }
     } catch (caught) {
       onError(caught instanceof Error ? caught.message : 'Draft generation failed.')
@@ -121,9 +118,17 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
         <div className="stage-stack">
           <IdeaStage
             disabled={disabled}
-            pendingLabel={pendingLabelFor('idea', 'draft')}
+            pendingLabel={pendingLabelFor('idea')}
             onSave={(input) => runAction('idea', 'Saving idea...', async () => (await videoApi.createProject(input)).project)}
-            onGenerateDraft={runDraft}
+          />
+          <FormatStrategyStage
+            project={activeProject}
+            disabled={disabled}
+            pendingLabel={pendingLabelFor('format_strategy')}
+            onSave={runFormatStrategy}
+            onGenerateDraft={async () => {
+              if (activeProject) await runDraftFromProject(activeProject)
+            }}
           />
           <StoryboardStage
             project={activeProject}

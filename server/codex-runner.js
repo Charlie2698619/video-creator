@@ -50,12 +50,32 @@ function buildStoryboardContext(storyboard) {
   return lines
 }
 
+function buildFormatStrategyContext(formatStrategy) {
+  if (!formatStrategy) return []
+  const lines = [
+    `Format type: ${formatStrategy.formatType}`,
+    `Content moat: ${formatStrategy.contentMoat}`,
+    `Visual system: ${formatStrategy.visualSystem}`,
+    `Sync priority: ${formatStrategy.syncPriority}`,
+  ]
+  if (formatStrategy.policyNotes?.length) lines.push(`Policy notes: ${formatStrategy.policyNotes.join(' | ')}`)
+  return lines
+}
+
+function sourceTemplateGuidance(formatStrategy) {
+  if (formatStrategy?.formatType === 'multi_image_story') {
+    return 'Use story-panel composition: scene-by-scene visual panels, consistent character/setting language, gentle transitions, and readable caption strips.'
+  }
+  return 'Use programmatic explainer composition: kinetic typography, diagrams, comparison cards, timelines, icons, and clean chart-like motion.'
+}
+
 export function buildStagePrompt({
   stage,
   projectTitle,
   videoRoot,
   storyboard = null,
   narrationAudioPath = null,
+  formatStrategy = null,
   targetDurationSeconds = 30,
   generationSettings = {},
   ideaSummary = '',
@@ -65,6 +85,7 @@ export function buildStagePrompt({
   const wordRange = spokenWordRange(targetDurationSeconds)
   const ideaContext = buildIdeaContext({ ideaSummary, viewerTakeaway })
   const storyboardContext = buildStoryboardContext(storyboard)
+  const formatContext = buildFormatStrategyContext(formatStrategy)
   const guardrails = [
     'Complete only this artifact-generation task.',
     'Write the requested file path(s) directly, then stop.',
@@ -75,6 +96,7 @@ export function buildStagePrompt({
       guardrails,
       `Create a short-video storyboard for "${projectTitle}".`,
       ...ideaContext,
+      ...formatContext,
       `Tone: human, natural, and creator-led; pacing should feel ${settings.pacing}.`,
       `Write ${videoRoot}/storyboard.md with Hook, Beats, Ending, and Tone sections.`,
       'Do not create social posts, platform variants, analytics, calendars, or publishing assets.',
@@ -85,6 +107,7 @@ export function buildStagePrompt({
       guardrails,
       `Create a ${targetDurationSeconds}-second 9:16 scene plan for "${projectTitle}".`,
       ...ideaContext,
+      ...formatContext,
       ...storyboardContext,
       `Visual complexity: ${settings.visualComplexity}. Use human-oriented framing, natural motion, and concrete creator-style visual details.`,
       `Audio mix direction: ${settings.audioMix}.`,
@@ -98,6 +121,7 @@ export function buildStagePrompt({
       guardrails,
       `Create an approximately ${targetDurationSeconds}-second AI narration script for "${projectTitle}".`,
       ...ideaContext,
+      ...formatContext,
       `Write ${videoRoot}/audio/narration.txt as a plain text narration script.`,
       `Keep it to ${wordRange.min}-${wordRange.max} spoken words, one warm human voice, no markdown, no scene labels, no music cues, no social publishing copy.`,
     ].join('\n')
@@ -113,6 +137,8 @@ export function buildStagePrompt({
     guardrails,
     `Create HyperFrames source for "${projectTitle}".`,
     ...ideaContext,
+    ...formatContext,
+    sourceTemplateGuidance(formatStrategy),
     `Write ${videoRoot}/hyperframes/index.html and ${videoRoot}/hyperframes/source-manifest.json.`,
     'The composition must be 1080x1920 portrait and renderable by HyperFrames.',
     audioInstruction,
@@ -220,6 +246,7 @@ export async function runCodexStage({
   projectTitle,
   storyboard = null,
   narrationAudioPath = null,
+  formatStrategy = null,
   targetDurationSeconds = 30,
   generationSettings = {},
   ideaSummary = '',
@@ -236,6 +263,7 @@ export async function runCodexStage({
     videoRoot: relativeRoot,
     storyboard,
     narrationAudioPath,
+    formatStrategy,
     targetDurationSeconds,
     generationSettings,
     ideaSummary,

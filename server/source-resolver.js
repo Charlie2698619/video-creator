@@ -23,6 +23,7 @@ async function runDefaultCodexSource({ repoRoot, project }) {
     stage: 'source',
     projectTitle: project.title,
     narrationAudioPath: project.narration?.audioPath ?? null,
+    formatStrategy: project.formatStrategy,
     targetDurationSeconds: project.idea.targetDurationSeconds,
     generationSettings: project.idea.generationSettings ?? {},
     ideaSummary: project.idea.summary,

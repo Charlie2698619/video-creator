@@ -201,6 +201,7 @@ export async function createServer(options = {}) {
             projectTitle: project.title,
             storyboard: stage === 'scene_plan' ? project.storyboard : null,
             narrationAudioPath: project.narration?.audioPath ?? null,
+            formatStrategy: project.formatStrategy,
             targetDurationSeconds: project.idea.targetDurationSeconds,
             generationSettings: project.idea.generationSettings ?? {},
             ideaSummary: project.idea.summary,

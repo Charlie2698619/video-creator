@@ -4,6 +4,20 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { buildCodexArgs, buildStagePrompt, runCodexStage } from '../../server/codex-runner.js'
 
+const formatStrategy = {
+  formatType: 'programmatic_explainer',
+  contentMoat: 'Original source material and creator point of view.',
+  visualSystem: 'Axis diagram, kinetic text, comparison cards.',
+  syncPriority: 'high',
+  riskFlags: {
+    publicFigure: false,
+    syntheticVoice: false,
+    aiMusic: false,
+    realisticSyntheticScene: false,
+  },
+  policyNotes: [],
+}
+
 test('builds a workspace-write Codex command without unsafe sandbox flags', () => {
   const args = buildCodexArgs('/repo', '/repo/media/videos/video-1/codex-last-message.txt')
 
@@ -60,6 +74,39 @@ test('source prompt includes generated narration audio when available', () => {
 
   expect(prompt).toContain('media/videos/video-1/audio/narration.wav')
   expect(prompt).toContain('src="../audio/narration.wav"')
+})
+
+test('storyboard prompt includes format strategy context', () => {
+  const prompt = buildStagePrompt({
+    stage: 'storyboard',
+    projectTitle: 'Format prompt',
+    videoRoot: 'media/videos/video-1',
+    formatStrategy,
+  })
+
+  expect(prompt).toContain('Format type: programmatic_explainer')
+  expect(prompt).toContain('Content moat: Original source material and creator point of view.')
+  expect(prompt).toContain('Visual system: Axis diagram, kinetic text, comparison cards.')
+})
+
+test('source prompt includes template-family guidance from format strategy', () => {
+  const prompt = buildStagePrompt({
+    stage: 'source',
+    projectTitle: 'Format prompt',
+    videoRoot: 'media/videos/video-1',
+    formatStrategy: {
+      ...formatStrategy,
+      formatType: 'multi_image_story',
+      contentMoat: 'Character goal, obstacle, reversal, emotional payoff.',
+      visualSystem: 'Story panels, consistent setting, caption strips.',
+      syncPriority: 'medium',
+    },
+    narrationAudioPath: 'media/videos/video-1/audio/narration.wav',
+  })
+
+  expect(prompt).toContain('Format type: multi_image_story')
+  expect(prompt).toContain('Use story-panel composition')
+  expect(prompt).toContain('consistent setting')
 })
 
 test('scene plan prompt includes storyboard context when available', () => {

@@ -1,4 +1,4 @@
-import type { GenerationSettings, VideoProject } from '../domain/video'
+import type { FormatStrategyInput, GenerationSettings, VideoProject } from '../domain/video'
 
 type ReviewInput = {
   humanDecision: 'approved' | 'rejected'
@@ -30,6 +30,8 @@ export const videoApi = {
   getProject: (videoId: string) => request<{ project: VideoProject }>(`/api/projects/${videoId}`),
   createProject: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds?: number; generationSettings?: GenerationSettings }) =>
     request<{ project: VideoProject }>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
+  saveFormatStrategy: (videoId: string, input: FormatStrategyInput) =>
+    request<{ project: VideoProject }>(`/api/projects/${videoId}/format-strategy`, { method: 'POST', body: JSON.stringify(input) }),
   runCodexStage: (videoId: string, stage: 'storyboard' | 'scene_plan' | 'narration' | 'source') =>
     request<{ result: { status: string; artifactPath: string }; project: VideoProject }>(`/api/projects/${videoId}/codex/${stage}`, { method: 'POST' }),
   generateNarrationAudio: (videoId: string) => request<{ project: VideoProject }>(`/api/projects/${videoId}/narration/audio`, { method: 'POST' }),

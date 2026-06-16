@@ -60,3 +60,43 @@ test('sends explicit review decisions', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+test('saves format strategy through the API client', async () => {
+  const originalFetch = globalThis.fetch
+  const requests: Array<{ path: string; init?: RequestInit }> = []
+  globalThis.fetch = ((path, init) => {
+    requests.push({ path: String(path), init })
+    return Promise.resolve(
+      new Response(JSON.stringify({ project: { id: 'video-1', formatStrategy: {} } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+  }) as typeof fetch
+
+  try {
+    await videoApi.saveFormatStrategy('video-1', {
+      formatType: 'programmatic_explainer',
+      contentMoat: 'Original source framing.',
+      visualSystem: 'Axis diagram and cards.',
+      syncPriority: 'high',
+      riskFlags: {
+        publicFigure: false,
+        syntheticVoice: false,
+        aiMusic: false,
+        realisticSyntheticScene: false,
+      },
+    })
+
+    expect(requests).toHaveLength(1)
+    expect(requests[0].path).toBe('/api/projects/video-1/format-strategy')
+    expect(JSON.parse(String(requests[0].init?.body))).toMatchObject({
+      formatType: 'programmatic_explainer',
+      contentMoat: 'Original source framing.',
+      visualSystem: 'Axis diagram and cards.',
+      syncPriority: 'high',
+    })
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

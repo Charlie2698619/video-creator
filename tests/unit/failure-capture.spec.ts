@@ -27,6 +27,26 @@ async function createProject(baseUrl: string) {
   return body.project as VideoProject
 }
 
+async function saveFormatStrategy(baseUrl: string, videoId: string) {
+  const response = await fetch(`${baseUrl}/api/projects/${videoId}/format-strategy`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      formatType: 'programmatic_explainer',
+      contentMoat: 'Original failure-state framing.',
+      visualSystem: 'Failure card and retry checklist.',
+      syncPriority: 'high',
+      riskFlags: {
+        publicFigure: false,
+        syntheticVoice: false,
+        aiMusic: false,
+        realisticSyntheticScene: false,
+      },
+    }),
+  })
+  expect(response.status).toBe(200)
+}
+
 function projectReadyForSource(): VideoProject {
   return {
     id: 'video-20260603000000',
@@ -144,6 +164,7 @@ exit 42
       if (!address || typeof address === 'string') throw new Error('Expected TCP server address.')
       const baseUrl = `http://127.0.0.1:${address.port}`
       const project = await createProject(baseUrl)
+      await saveFormatStrategy(baseUrl, project.id)
 
       const response = await fetch(`${baseUrl}/api/projects/${project.id}/codex/storyboard`, { method: 'POST' })
       const body = await response.json()

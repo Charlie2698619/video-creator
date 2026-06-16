@@ -4,7 +4,7 @@ import { runCodexStage } from './codex-runner.js'
 import { renderHyperFrames } from './hyperframes-renderer.js'
 import { writeMetadata } from './metadata.js'
 import { generateNarrationAudio } from './narration.js'
-import { createVideoProject } from './project-schema.mjs'
+import { createVideoProject, normalizeFormatStrategy } from './project-schema.mjs'
 import { createProjectStore } from './project-store.js'
 import { checkTools } from './doctor.js'
 import { buildReviewChecklist, isChecklistApproved } from './review-checklist.js'
@@ -158,10 +158,26 @@ export async function createServer(options = {}) {
         await store.saveProject(project)
         return sendJson(response, 201, { project })
       }
+      if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/format-strategy$/.test(url.pathname)) {
+        const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/format-strategy$/)
+        const project = await loadProjectOr404(store, videoId)
+        const formatStrategy = normalizeFormatStrategy(await readJson(request))
+        const nextProject = {
+          ...project,
+          formatStrategy,
+          status: 'format_strategy',
+          updatedAt: new Date().toISOString(),
+        }
+        await store.saveProject(nextProject)
+        return sendJson(response, 200, { project: nextProject })
+      }
       if (request.method === 'POST' && /^\/api\/projects\/[^/]+\/codex\/(storyboard|scene_plan|narration|source)$/.test(url.pathname)) {
         const [, videoId, stage] = url.pathname.match(/^\/api\/projects\/([^/]+)\/codex\/(storyboard|scene_plan|narration|source)$/)
         const project = await loadProjectOr404(store, videoId)
         try {
+          if (stage === 'storyboard' && !project.formatStrategy) {
+            throw invalidState('FORMAT_STRATEGY_REQUIRED', 'Format strategy is required before storyboard generation.')
+          }
           if (stage === 'source') {
             if (!project.scenePlan) throw invalidState('SCENE_PLAN_REQUIRED', 'Scene plan is required before source generation.')
             if (!project.narration?.audioPath) throw invalidState('NARRATION_AUDIO_REQUIRED', 'Narration audio is required before source generation.')

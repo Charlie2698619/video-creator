@@ -102,6 +102,28 @@ test('keeps rendered projects out of reviewed state without a checklist', () => 
   expect(project.reviewChecklist).toBeNull()
 })
 
+test('policy warnings do not block review approval', () => {
+  const checklist = createDefaultChecklist()
+  const approved = {
+    ...checklist,
+    mp4Exists: true,
+    mp4HasAudioStream: true,
+    aspectRatioIsPortrait: true,
+    durationMatchesPlan: true,
+    textReadable: true,
+    thumbnailExists: true,
+    metadataValid: true,
+    narrationAudioExists: true,
+    sourcePreserved: true,
+    noFailedArtifactMarkedComplete: true,
+    policyWarnings: ['Synthetic voice is used; keep disclosure notes available for review.'],
+    humanDecision: 'approved' as const,
+    reviewedAt: '2026-06-16T00:00:00.000Z',
+  }
+
+  expect(canMarkReviewed(approved)).toBe(true)
+})
+
 test('review checklist tolerates realistic render duration drift', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'duration-tolerance-'))
 

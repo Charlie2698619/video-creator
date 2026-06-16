@@ -12,6 +12,7 @@ export function createDefaultChecklist(): ReviewChecklist {
     narrationAudioExists: false,
     sourcePreserved: false,
     noFailedArtifactMarkedComplete: false,
+    policyWarnings: [],
     humanDecision: 'pending',
     reviewedAt: null,
   }

@@ -24,6 +24,8 @@ export async function writeMetadata({ repoRoot, project }) {
     title: project.title,
     ideaSummary: project.idea.summary,
     generationSettings: project.idea.generationSettings ?? null,
+    formatStrategy: project.formatStrategy,
+    policyWarnings: project.formatStrategy?.policyNotes ?? [],
     narration: project.narration
       ? {
           scriptPath: project.narration.scriptPath,

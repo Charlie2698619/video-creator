@@ -77,6 +77,7 @@ export async function buildReviewChecklist({ repoRoot, project, humanDecision, t
     narrationAudioExists: project.narration?.audioPath ? await hasFile(project.narration.audioPath) : false,
     sourcePreserved: project.artifacts.sourceBundle ? await hasFile(project.artifacts.sourceBundle.manifestPath) : false,
     noFailedArtifactMarkedComplete: project.failure === null,
+    policyWarnings: project.formatStrategy?.policyNotes ?? [],
     humanDecision,
     reviewedAt: humanDecision === 'pending' ? null : new Date().toISOString(),
   }

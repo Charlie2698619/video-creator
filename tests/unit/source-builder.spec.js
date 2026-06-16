@@ -95,3 +95,36 @@ test('builds visible HyperFrames source from a real scene plan', async () => {
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('fallback source records format template family in the manifest', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'source-format-'))
+  const baseProject = projectWithScenePlan()
+  const project = {
+    ...baseProject,
+    formatStrategy: {
+      formatType: 'programmatic_explainer',
+      contentMoat: 'Original framework.',
+      visualSystem: 'Axis diagram and cards.',
+      syncPriority: 'high',
+      riskFlags: {
+        publicFigure: false,
+        syntheticVoice: false,
+        aiMusic: false,
+        realisticSyntheticScene: false,
+      },
+      policyNotes: [],
+    },
+  }
+
+  try {
+    await mkdir(path.join(root, 'media/videos', project.id, 'audio'), { recursive: true })
+    await writeFile(path.join(root, project.narration.audioPath), 'fake wav', 'utf8')
+    const bundle = await buildHyperFramesSource({ repoRoot: root, project })
+    const manifest = JSON.parse(await readFile(path.join(root, bundle.manifestPath), 'utf8'))
+
+    expect(manifest.formatType).toBe('programmatic_explainer')
+    expect(manifest.templateFamily).toBe('programmatic_explainer')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

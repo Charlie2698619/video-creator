@@ -24,6 +24,11 @@ function getGenerationSettings(project) {
   }
 }
 
+function getTemplateFamily(project) {
+  if (project.formatStrategy?.formatType === 'multi_image_story') return 'multi_image_story'
+  return 'programmatic_explainer'
+}
+
 function formatSeconds(value) {
   return Number(value.toFixed(2)).toString()
 }
@@ -544,6 +549,11 @@ export async function buildHyperFramesSource({ repoRoot, project }) {
         width: 1080,
         height: 1920,
         renderStyle: 'cinematic_scene_layers',
+        formatType: project.formatStrategy?.formatType ?? 'programmatic_explainer',
+        templateFamily: getTemplateFamily(project),
+        contentMoat: project.formatStrategy?.contentMoat ?? null,
+        visualSystem: project.formatStrategy?.visualSystem ?? null,
+        syncPriority: project.formatStrategy?.syncPriority ?? null,
         durationPolicy: settings.durationMode,
         visualDurationSeconds: videoDurationSeconds,
         audioDurationSeconds: project.narration?.durationSeconds ?? null,

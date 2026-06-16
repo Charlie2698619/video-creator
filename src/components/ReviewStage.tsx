@@ -10,7 +10,7 @@ type ReviewStageProps = {
   pendingLabel: string | null
 }
 
-const checklistLabels: Array<{ key: keyof Omit<ReviewChecklist, 'humanDecision' | 'reviewedAt'>; label: string }> = [
+const checklistLabels: Array<{ key: keyof Omit<ReviewChecklist, 'humanDecision' | 'policyWarnings' | 'reviewedAt'>; label: string }> = [
   { key: 'mp4Exists', label: 'MP4 exists' },
   { key: 'mp4HasAudioStream', label: 'MP4 has audio' },
   { key: 'aspectRatioIsPortrait', label: 'Portrait aspect ratio' },
@@ -59,6 +59,13 @@ export function ReviewStage({ project, onReview, disabled, pendingLabel }: Revie
             <span>Human decision</span>
             <strong>{reviewChecklist.humanDecision}</strong>
           </li>
+        </ul>
+      ) : null}
+      {reviewChecklist?.policyWarnings?.length ? (
+        <ul className="policy-warning-list" aria-label="Policy warnings">
+          {reviewChecklist.policyWarnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
         </ul>
       ) : null}
       {project?.status === 'reviewed' ? (

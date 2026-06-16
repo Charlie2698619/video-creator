@@ -46,6 +46,19 @@ function completeProject(now = '2026-05-31T00:00:00.000Z') {
       durationSeconds: 30,
       status: 'audio_ready',
     },
+    formatStrategy: {
+      formatType: 'programmatic_explainer',
+      contentMoat: 'Original artifact verification.',
+      visualSystem: 'Checklist cards and artifact rows.',
+      syncPriority: 'high',
+      riskFlags: {
+        publicFigure: false,
+        syntheticVoice: true,
+        aiMusic: false,
+        realisticSyntheticScene: false,
+      },
+      policyNotes: ['Synthetic voice is used; keep disclosure notes available for review.'],
+    },
     artifacts: {
       sourceBundle: {
         sourceFolder: `media/videos/${project.id}/hyperframes`,
@@ -154,6 +167,8 @@ test('writeMetadata verifies declared artifacts and writes checksums', async () 
     expect(metadata.videoId).toBe(project.id)
     expect(metadata.mp4Path).toBe(project.artifacts.renderResult.mp4Path)
     expect(metadata.thumbnailPath).toBe(project.artifacts.thumbnail.path)
+    expect(metadata.formatStrategy.formatType).toBe('programmatic_explainer')
+    expect(metadata.policyWarnings).toEqual(['Synthetic voice is used; keep disclosure notes available for review.'])
     expect(metadata.checksums.mp4).toMatch(/^[a-f0-9]{64}$/)
     expect(metadata.checksums.narrationAudio).toMatch(/^[a-f0-9]{64}$/)
     expect(metadata.checksums.thumbnail).toMatch(/^[a-f0-9]{64}$/)
@@ -191,6 +206,7 @@ test('buildReviewChecklist requires human readable-text confirmation for approva
     })
 
     expect(checklistPath).toBe(`media/videos/${project.id}/review-checklist.json`)
+    expect(checklist.policyWarnings).toEqual(['Synthetic voice is used; keep disclosure notes available for review.'])
     expect(checklist.mp4HasAudioStream).toBe(true)
     expect(checklist.textReadable).toBe(false)
     expect(checklist.humanDecision).toBe('approved')

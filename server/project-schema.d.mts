@@ -142,6 +142,7 @@ export type ReviewChecklist = {
   narrationAudioExists: boolean
   sourcePreserved: boolean
   noFailedArtifactMarkedComplete: boolean
+  policyWarnings: string[]
   humanDecision: 'pending' | 'approved' | 'rejected'
   reviewedAt: string | null
 }

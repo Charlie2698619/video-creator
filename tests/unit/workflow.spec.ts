@@ -3,7 +3,9 @@ import { canTransition, getNextStage, getWorkflowBlockers } from '../../src/doma
 import { createVideoProject } from '../../src/domain/video'
 
 test('allows only linear V1 workflow transitions', () => {
-  expect(canTransition('idea', 'storyboard')).toBe(true)
+  expect(canTransition('idea', 'format_strategy')).toBe(true)
+  expect(canTransition('idea', 'storyboard')).toBe(false)
+  expect(canTransition('format_strategy', 'storyboard')).toBe(true)
   expect(canTransition('storyboard', 'scene_plan')).toBe(true)
   expect(canTransition('scene_plan', 'narration_script')).toBe(true)
   expect(canTransition('narration_ready', 'source_ready')).toBe(true)
@@ -11,7 +13,7 @@ test('allows only linear V1 workflow transitions', () => {
   expect(canTransition('rendered', 'reviewed')).toBe(false)
 })
 
-test('reports missing artifacts before review', () => {
+test('requires format strategy before storyboard', () => {
   const project = createVideoProject(
     {
       title: 'Artifact honesty',
@@ -22,8 +24,41 @@ test('reports missing artifacts before review', () => {
     '2026-05-17T00:00:00.000Z',
   )
 
-  expect(getNextStage(project)).toBe('storyboard')
-  expect(getWorkflowBlockers(project)).toContain('Storyboard is required before scene planning.')
+  expect(getNextStage(project)).toBe('format_strategy')
+  expect(getWorkflowBlockers(project)).toContain('Format strategy is required before storyboard generation.')
+})
+
+test('moves from format strategy to storyboard after strategy is saved', () => {
+  const project = createVideoProject(
+    {
+      title: 'Format gate',
+      summary: 'Explain why production format matters.',
+      takeaway: 'Format controls the video pipeline.',
+      references: [],
+    },
+    '2026-06-16T00:00:00.000Z',
+  )
+
+  const withStrategy = {
+    ...project,
+    status: 'format_strategy' as const,
+    formatStrategy: {
+      formatType: 'programmatic_explainer' as const,
+      contentMoat: 'Original framing.',
+      visualSystem: 'Axis diagram and cards.',
+      syncPriority: 'high' as const,
+      riskFlags: {
+        publicFigure: false,
+        syntheticVoice: false,
+        aiMusic: false,
+        realisticSyntheticScene: false,
+      },
+      policyNotes: [],
+    },
+  }
+
+  expect(getNextStage(withStrategy)).toBe('storyboard')
+  expect(getWorkflowBlockers(withStrategy)).toContain('Storyboard is required before scene planning.')
 })
 
 test('requires narration audio before HyperFrames source generation', () => {
@@ -36,6 +71,19 @@ test('requires narration audio before HyperFrames source generation', () => {
     },
     '2026-05-17T00:00:00.000Z',
   )
+  project.formatStrategy = {
+    formatType: 'programmatic_explainer',
+    contentMoat: 'Original framing.',
+    visualSystem: 'Axis diagram and cards.',
+    syncPriority: 'high',
+    riskFlags: {
+      publicFigure: false,
+      syntheticVoice: false,
+      aiMusic: false,
+      realisticSyntheticScene: false,
+    },
+    policyNotes: [],
+  }
   project.storyboard = { hook: 'Hook', beats: ['Beat'], ending: 'End', tone: 'Practical' }
   project.scenePlan = { scenes: [], totalDurationSeconds: 30 }
   project.status = 'scene_plan'

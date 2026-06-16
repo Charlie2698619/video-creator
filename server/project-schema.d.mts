@@ -2,6 +2,7 @@ import type { z } from 'zod'
 
 export declare const videoStatuses: readonly [
   'idea',
+  'format_strategy',
   'storyboard',
   'scene_plan',
   'narration_script',
@@ -15,6 +16,19 @@ export declare const videoStatuses: readonly [
 ]
 
 export type VideoStatus = (typeof videoStatuses)[number]
+
+export declare const formatTypes: readonly ['programmatic_explainer', 'multi_image_story']
+export declare const syncPriorities: readonly ['medium', 'high']
+
+export type FormatType = (typeof formatTypes)[number]
+export type SyncPriority = (typeof syncPriorities)[number]
+
+export type RiskFlags = {
+  publicFigure: boolean
+  syntheticVoice: boolean
+  aiMusic: boolean
+  realisticSyntheticScene: boolean
+}
 
 export type GenerationSettings = {
   durationMode: 'voice_led' | 'fixed'
@@ -42,6 +56,23 @@ export type Idea = {
   references: string[]
   targetDurationSeconds: number
   generationSettings: GenerationSettings
+}
+
+export type FormatStrategyInput = {
+  formatType: FormatType
+  contentMoat: string
+  visualSystem: string
+  syncPriority?: SyncPriority
+  riskFlags?: Partial<RiskFlags>
+}
+
+export type FormatStrategy = {
+  formatType: FormatType
+  contentMoat: string
+  visualSystem: string
+  syncPriority: SyncPriority
+  riskFlags: RiskFlags
+  policyNotes: string[]
 }
 
 export type Storyboard = {
@@ -122,6 +153,7 @@ export type VideoProject = {
   createdAt: string
   updatedAt: string
   idea: Idea
+  formatStrategy: FormatStrategy | null
   storyboard: Storyboard | null
   scenePlan: ScenePlan | null
   narration: Narration | null
@@ -137,8 +169,11 @@ export type VideoProject = {
 }
 
 export declare const defaultGenerationSettings: Readonly<GenerationSettings>
+export declare const defaultRiskFlags: Readonly<RiskFlags>
 export declare const generationSettingsSchema: z.ZodType<GenerationSettings, GenerationSettingsInput | undefined>
+export declare const formatStrategyInputSchema: z.ZodType<FormatStrategyInput>
 export declare const projectInputSchema: z.ZodType<Idea, IdeaInput>
 export declare const ideaInputSchema: typeof projectInputSchema
 
+export declare function normalizeFormatStrategy(input: FormatStrategyInput): FormatStrategy
 export declare function createVideoProject(input: IdeaInput, nowIso: string): VideoProject

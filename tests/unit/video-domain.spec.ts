@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createVideoProject, videoStatuses } from '../../src/domain/video'
+import { createVideoProject, formatTypes, videoStatuses } from '../../src/domain/video'
 
 test('creates an idea-stage project with a 30 second default', () => {
   const project = createVideoProject(
@@ -22,8 +22,11 @@ test('creates an idea-stage project with a 30 second default', () => {
     audioMix: 'voice_only',
   })
   expect(project.narration).toBeNull()
+  expect(project.formatStrategy).toBeNull()
   expect(project.artifacts.sourceBundle).toBeNull()
+  expect(videoStatuses).toContain('format_strategy')
   expect(videoStatuses).toContain('reviewed')
+  expect(formatTypes).toEqual(['programmatic_explainer', 'multi_image_story'])
 })
 
 test('accepts human-oriented generation settings', () => {

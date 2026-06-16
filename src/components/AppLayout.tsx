@@ -122,6 +122,7 @@ export function AppLayout({ activeProject, projects, error, loadingProjects, onE
             onSave={(input) => runAction('idea', 'Saving idea...', async () => (await videoApi.createProject(input)).project)}
           />
           <FormatStrategyStage
+            key={activeProject?.id ?? 'no-project'}
             project={activeProject}
             disabled={disabled}
             pendingLabel={pendingLabelFor('format_strategy')}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { FormatStrategyInput, FormatType, RiskFlags, SyncPriority, VideoProject } from '../domain/video'
 import { getFormatHint, promptCoach } from '../domain/promptCoach'
@@ -32,21 +32,13 @@ function strategyFromProject(project: VideoProject | null) {
 }
 
 export function FormatStrategyStage({ project, disabled, pendingLabel, onSave, onGenerateDraft }: FormatStrategyStageProps) {
-  const [formatType, setFormatType] = useState<FormatType>('programmatic_explainer')
-  const [contentMoat, setContentMoat] = useState('')
-  const [visualSystem, setVisualSystem] = useState('')
-  const [syncPriority, setSyncPriority] = useState<SyncPriority>('medium')
-  const [riskFlags, setRiskFlags] = useState<RiskFlags>(defaultRiskFlags)
+  const initialStrategy = strategyFromProject(project)
+  const [formatType, setFormatType] = useState<FormatType>(initialStrategy.formatType)
+  const [contentMoat, setContentMoat] = useState(initialStrategy.contentMoat)
+  const [visualSystem, setVisualSystem] = useState(initialStrategy.visualSystem)
+  const [syncPriority, setSyncPriority] = useState<SyncPriority>(initialStrategy.syncPriority)
+  const [riskFlags, setRiskFlags] = useState<RiskFlags>(initialStrategy.riskFlags)
   const inputDisabled = disabled || !project
-
-  useEffect(() => {
-    const next = strategyFromProject(project)
-    setFormatType(next.formatType)
-    setContentMoat(next.contentMoat)
-    setVisualSystem(next.visualSystem)
-    setSyncPriority(next.syncPriority)
-    setRiskFlags(next.riskFlags)
-  }, [project])
 
   function setRiskFlag(key: keyof RiskFlags, value: boolean) {
     setRiskFlags((current) => ({ ...current, [key]: value }))

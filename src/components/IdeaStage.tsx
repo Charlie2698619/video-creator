@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { GenerationSettings } from '../domain/video'
+import { promptCoach } from '../domain/promptCoach'
+import { FieldCoach } from './FieldCoach'
 import { StageProgress } from './StageProgress'
 
 type IdeaStageProps = {
   onSave: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds: number; generationSettings: GenerationSettings }) => Promise<void>
-  onGenerateDraft: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds: number; generationSettings: GenerationSettings }) => Promise<void>
+  onGenerateDraft?: (input: { title: string; summary: string; takeaway: string; references: string[]; targetDurationSeconds: number; generationSettings: GenerationSettings }) => Promise<void>
   disabled: boolean
   pendingLabel: string | null
 }
 
-export function IdeaStage({ onSave, onGenerateDraft, disabled, pendingLabel }: IdeaStageProps) {
+export function IdeaStage({ onSave, disabled, pendingLabel }: IdeaStageProps) {
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [takeaway, setTakeaway] = useState('')
@@ -49,14 +51,17 @@ export function IdeaStage({ onSave, onGenerateDraft, disabled, pendingLabel }: I
             <label className="form-row">
               <span>Working title</span>
               <input value={title} onChange={(event) => setTitle(event.target.value)} />
+              <FieldCoach {...promptCoach.idea} />
             </label>
             <label className="form-row">
               <span>Idea summary</span>
               <textarea value={summary} onChange={(event) => setSummary(event.target.value)} />
+              <FieldCoach {...promptCoach.idea} />
             </label>
             <label className="form-row">
               <span>Viewer takeaway</span>
               <textarea value={takeaway} onChange={(event) => setTakeaway(event.target.value)} />
+              <FieldCoach {...promptCoach.viewerTakeaway} />
             </label>
           </div>
           <fieldset className="tuning-panel">
@@ -104,10 +109,7 @@ export function IdeaStage({ onSave, onGenerateDraft, disabled, pendingLabel }: I
           </fieldset>
         </div>
         <div className="action-row">
-          <button className="primary-action" type="button" onClick={() => onGenerateDraft(buildInput())} disabled={disabled}>
-            Generate draft
-          </button>
-          <button className="secondary-action" type="submit" disabled={disabled}>
+          <button className="primary-action" type="submit" disabled={disabled}>
             Save idea
           </button>
         </div>

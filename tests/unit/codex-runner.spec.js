@@ -23,6 +23,9 @@ test('builds a workspace-write Codex command without unsafe sandbox flags', () =
 
   expect(args).toEqual([
     'exec',
+    '--disable',
+    'plugins',
+    '--ephemeral',
     '--sandbox',
     'workspace-write',
     '--cd',

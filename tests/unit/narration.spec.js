@@ -56,3 +56,37 @@ test('test mode writes a deterministic wav narration artifact', async () => {
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('falls back to direct Kokoro synthesis when HyperFrames misreports missing packages', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'narration-fallback-'))
+  const videoRoot = path.join(root, 'media/videos/video-1')
+  const scriptPath = path.join(videoRoot, 'audio/narration.txt')
+  const calls = []
+
+  try {
+    await mkdir(path.dirname(scriptPath), { recursive: true })
+    await writeFile(scriptPath, 'A short local-first narration script.', 'utf8')
+    const result = await generateNarrationAudio({
+      repoRoot: root,
+      videoId: 'video-1',
+      scriptPath: 'media/videos/video-1/audio/narration.txt',
+      voice: 'af_nova',
+      durationSeconds: 30,
+      runHyperFramesTts: async () => {
+        calls.push('hyperframes')
+        throw new Error('The kokoro-onnx package is not installed. Run: pip install kokoro-onnx soundfile')
+      },
+      runDirectKokoroTts: async ({ outputPath }) => {
+        calls.push('direct')
+        await writeFile(outputPath, Buffer.from('RIFF$\0\0\0WAVEfmt \x10\0\0\0\x01\0\x01\0D\xac\0\0\x88X\x01\0\x02\0\x10\0data\0\0\0\0', 'binary'))
+      },
+    })
+
+    expect(calls).toEqual(['hyperframes', 'direct'])
+    expect(result.audioPath).toBe('media/videos/video-1/audio/narration.wav')
+    expect(result.voice).toBe('af_nova')
+    expect((await readFile(path.join(root, result.audioPath))).subarray(0, 4).toString('ascii')).toBe('RIFF')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

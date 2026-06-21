@@ -42,6 +42,132 @@ function projectNotFound() {
   return new ApiError(404, 'PROJECT_NOT_FOUND', 'not_found', 'Project not found.')
 }
 
+function emptyArtifacts() {
+  return {
+    sourceBundle: null,
+    renderResult: null,
+    thumbnail: null,
+    metadataPath: null,
+    reviewChecklistPath: null,
+  }
+}
+
+function clearDownstream(project, stage) {
+  const cleared = { ...project, failure: null }
+  if (stage === 'format_strategy') {
+    return {
+      ...cleared,
+      storyboard: null,
+      scenePlan: null,
+      narration: null,
+      artifacts: emptyArtifacts(),
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'storyboard') {
+    return {
+      ...cleared,
+      scenePlan: null,
+      narration: null,
+      artifacts: emptyArtifacts(),
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'scene_plan') {
+    return {
+      ...cleared,
+      narration: null,
+      artifacts: emptyArtifacts(),
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'narration') {
+    return {
+      ...cleared,
+      artifacts: emptyArtifacts(),
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'source') {
+    return {
+      ...cleared,
+      artifacts: {
+        ...project.artifacts,
+        renderResult: null,
+        thumbnail: null,
+        metadataPath: null,
+        reviewChecklistPath: null,
+      },
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'render') {
+    return {
+      ...cleared,
+      artifacts: {
+        ...project.artifacts,
+        thumbnail: null,
+        metadataPath: null,
+        reviewChecklistPath: null,
+      },
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'thumbnail') {
+    return {
+      ...cleared,
+      artifacts: {
+        ...project.artifacts,
+        metadataPath: null,
+        reviewChecklistPath: null,
+      },
+      reviewChecklist: null,
+    }
+  }
+  if (stage === 'metadata') {
+    return {
+      ...cleared,
+      artifacts: {
+        ...project.artifacts,
+        reviewChecklistPath: null,
+      },
+      reviewChecklist: null,
+    }
+  }
+  return cleared
+}
+
+function deriveProjectStatus(project) {
+  if (project.status === 'failed') return 'failed'
+  if (!project.formatStrategy) return 'idea'
+  if (!project.storyboard) return 'format_strategy'
+  if (!project.scenePlan) return 'storyboard'
+  if (!project.narration) return 'scene_plan'
+  if (!project.narration.audioPath) return 'narration_script'
+  if (!project.artifacts.sourceBundle) return 'narration_ready'
+  if (!project.artifacts.renderResult) return 'source_ready'
+  if (!project.artifacts.thumbnail || !project.artifacts.metadataPath) return 'rendered'
+  if (!project.reviewChecklist) return 'library_ready'
+  return isChecklistApproved(project.reviewChecklist) ? 'reviewed' : 'needs_review'
+}
+
+function reconcileProjectState(project) {
+  if (project.status === 'failed') return project
+  let currentProject = project
+  if (!currentProject.formatStrategy) currentProject = clearDownstream(currentProject, 'format_strategy')
+  else if (!currentProject.storyboard) currentProject = clearDownstream(currentProject, 'storyboard')
+  else if (!currentProject.scenePlan) currentProject = clearDownstream(currentProject, 'scene_plan')
+  else if (!currentProject.narration?.audioPath) currentProject = clearDownstream(currentProject, 'narration')
+  else if (!currentProject.artifacts.sourceBundle) currentProject = clearDownstream(currentProject, 'source')
+  else if (!currentProject.artifacts.renderResult) currentProject = clearDownstream(currentProject, 'render')
+  else if (!currentProject.artifacts.thumbnail) currentProject = clearDownstream(currentProject, 'thumbnail')
+  else if (!currentProject.artifacts.metadataPath) currentProject = clearDownstream(currentProject, 'metadata')
+  return {
+    ...currentProject,
+    status: deriveProjectStatus(currentProject),
+  }
+}
+
 function normalizeError(error) {
   if (error instanceof ApiError) return error
   if (error?.code === 'ENOENT') return new ApiError(404, 'RESOURCE_NOT_FOUND', 'not_found', 'Required file was not found.')
@@ -119,7 +245,7 @@ function parseReviewInput(body) {
 
 async function loadProjectOr404(store, videoId) {
   try {
-    return await store.loadProject(videoId)
+    return reconcileProjectState(await store.loadProject(videoId))
   } catch (error) {
     if (error?.code === 'ENOENT') throw projectNotFound()
     throw error
@@ -147,7 +273,10 @@ export async function createServer(options = {}) {
 
       if (request.method === 'OPTIONS') return sendJson(response, 204, {})
       if (request.method === 'GET' && url.pathname === '/api/health') return sendJson(response, 200, { ok: true, tools: await checkTools({ repoRoot }) })
-      if (request.method === 'GET' && url.pathname === '/api/projects') return sendJson(response, 200, { projects: await store.listProjects() })
+      if (request.method === 'GET' && url.pathname === '/api/projects') {
+        const projects = (await store.listProjects()).map((project) => reconcileProjectState(project))
+        return sendJson(response, 200, { projects })
+      }
       if (request.method === 'GET' && /^\/api\/projects\/[^/]+$/.test(url.pathname)) {
         const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)$/)
         return sendJson(response, 200, { project: await loadProjectOr404(store, videoId) })
@@ -162,8 +291,9 @@ export async function createServer(options = {}) {
         const [, videoId] = url.pathname.match(/^\/api\/projects\/([^/]+)\/format-strategy$/)
         const project = await loadProjectOr404(store, videoId)
         const formatStrategy = normalizeFormatStrategy(await readJson(request))
+        const currentProject = clearDownstream(project, 'format_strategy')
         const nextProject = {
-          ...project,
+          ...currentProject,
           formatStrategy,
           status: 'format_strategy',
           updatedAt: new Date().toISOString(),
@@ -182,9 +312,10 @@ export async function createServer(options = {}) {
             if (!project.scenePlan) throw invalidState('SCENE_PLAN_REQUIRED', 'Scene plan is required before source generation.')
             if (!project.narration?.audioPath) throw invalidState('NARRATION_AUDIO_REQUIRED', 'Narration audio is required before source generation.')
             const sourceBundle = await resolveHyperFramesSource({ repoRoot, project })
+            const currentProject = clearDownstream(project, 'source')
             const nextProject = {
-              ...project,
-              artifacts: { ...project.artifacts, sourceBundle },
+              ...currentProject,
+              artifacts: { ...currentProject.artifacts, sourceBundle },
               status: 'source_ready',
               updatedAt: new Date().toISOString(),
             }
@@ -210,22 +341,25 @@ export async function createServer(options = {}) {
           })
           let nextProject = project
           if (stage === 'storyboard') {
+            const currentProject = clearDownstream(project, 'storyboard')
             nextProject = {
-              ...project,
+              ...currentProject,
               storyboard: parseStoryboard(await readFile(resolveInside(repoRoot, result.artifactPath), 'utf8')),
               status: 'storyboard',
             }
           }
           if (stage === 'scene_plan') {
+            const currentProject = clearDownstream(project, 'scene_plan')
             nextProject = {
-              ...project,
+              ...currentProject,
               scenePlan: normalizeScenePlan(JSON.parse(await readFile(resolveInside(repoRoot, `media/videos/${videoId}/scene-plan.json`), 'utf8'))),
               status: 'scene_plan',
             }
           }
           if (stage === 'narration') {
+            const currentProject = clearDownstream(project, 'narration')
             nextProject = {
-              ...project,
+              ...currentProject,
               narration: {
                 scriptPath: result.artifactPath,
                 audioPath: null,
@@ -256,8 +390,9 @@ export async function createServer(options = {}) {
           durationSeconds: project.narration.durationSeconds,
           testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
         })
+        const currentProject = clearDownstream(project, 'narration')
         const nextProject = {
-          ...project,
+          ...currentProject,
           narration: {
             ...project.narration,
             audioPath: audio.audioPath,
@@ -279,9 +414,10 @@ export async function createServer(options = {}) {
           testMode: process.env.VIDEO_CREATOR_TEST_MODE === '1',
         })
         const project = await loadProjectOr404(store, videoId)
+        const currentProject = clearDownstream(project, 'render')
         const nextProject = {
-          ...project,
-          artifacts: { ...project.artifacts, renderResult },
+          ...currentProject,
+          artifacts: { ...currentProject.artifacts, renderResult },
           status: 'rendered',
           updatedAt: new Date().toISOString(),
         }
@@ -293,9 +429,10 @@ export async function createServer(options = {}) {
         const project = await loadProjectOr404(store, videoId)
         if (!project.artifacts.renderResult) throw invalidState('RENDER_REQUIRED', 'MP4 render is required before thumbnail generation.')
         const thumbnail = await createThumbnail({ repoRoot, videoId, mp4Path: project.artifacts.renderResult.mp4Path })
+        const currentProject = clearDownstream(project, 'thumbnail')
         const nextProject = {
-          ...project,
-          artifacts: { ...project.artifacts, thumbnail },
+          ...currentProject,
+          artifacts: { ...currentProject.artifacts, thumbnail },
           updatedAt: new Date().toISOString(),
         }
         await store.saveProject(nextProject)
@@ -306,9 +443,10 @@ export async function createServer(options = {}) {
         const project = await loadProjectOr404(store, videoId)
         if (!project.artifacts.thumbnail) throw invalidState('THUMBNAIL_REQUIRED', 'Thumbnail is required before metadata generation.')
         const metadataPath = await writeMetadata({ repoRoot, project })
+        const currentProject = clearDownstream(project, 'metadata')
         const nextProject = {
-          ...project,
-          artifacts: { ...project.artifacts, metadataPath },
+          ...currentProject,
+          artifacts: { ...currentProject.artifacts, metadataPath },
           status: 'library_ready',
           updatedAt: new Date().toISOString(),
         }

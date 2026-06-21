@@ -13,7 +13,7 @@ function getStageArtifactPath(videoId, stage) {
 }
 
 export function buildCodexArgs(repoRoot, lastMessagePath) {
-  return ['exec', '--sandbox', 'workspace-write', '--cd', repoRoot, '--output-last-message', lastMessagePath, '--json', '-']
+  return ['exec', '--disable', 'plugins', '--ephemeral', '--sandbox', 'workspace-write', '--cd', repoRoot, '--output-last-message', lastMessagePath, '--json', '-']
 }
 
 function normalizeGenerationSettings(input = {}) {

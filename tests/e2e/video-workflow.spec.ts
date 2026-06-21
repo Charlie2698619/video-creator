@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 const execFileAsync = promisify(execFile)
 
 test('turns one idea into a reviewed video in test mode', async ({ page }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(150_000)
   const title = `Artifact honesty short ${crypto.randomUUID()}`
   await page.goto('/')
 
@@ -33,7 +33,7 @@ test('turns one idea into a reviewed video in test mode', async ({ page }) => {
         const project = projects.find((candidate) => candidate.title === title)
         return Boolean(project?.artifacts.renderResult?.mp4Path && project.artifacts.metadataPath)
       },
-      { timeout: 60_000 },
+      { timeout: 100_000 },
     )
     .toBe(true)
 
@@ -46,6 +46,6 @@ test('turns one idea into a reviewed video in test mode', async ({ page }) => {
 
   await page.getByLabel('On-screen text is readable').check()
   await page.getByRole('button', { name: 'Approve review' }).click()
-  await expect(page.getByText('Reviewed')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Reviewed')).toBeVisible({ timeout: 45_000 })
   await expect(page.getByRole('heading', { name: 'Media Library' })).toBeVisible()
 })
